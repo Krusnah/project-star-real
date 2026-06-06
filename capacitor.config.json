@@ -1,0 +1,6 @@
+{
+  "appId": "com.projectstar.app",
+  "appName": "Project Star",
+  "webDir": "out",
+  "bundledWebRuntime": false
+}

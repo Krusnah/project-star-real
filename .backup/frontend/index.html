@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Star ⭐ | Your Cosmic Connection</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Starfield Background -->
+    <div class="starfield" id="starfield"></div>
+    
+    <!-- Floating Particles -->
+    <div class="particle" style="top: 10%; left: 5%; font-size: 30px; animation-delay: 0s;">⭐</div>
+    <div class="particle" style="top: 20%; right: 10%; font-size: 25px; animation-delay: 2s;">✨</div>
+    <div class="particle" style="bottom: 30%; left: 15%; font-size: 35px; animation-delay: 4s;">🌟</div>
+    <div class="particle" style="bottom: 15%; right: 20%; font-size: 28px; animation-delay: 6s;">💫</div>
+    <div class="particle" style="top: 50%; left: 50%; font-size: 32px; animation-delay: 3s;">⭐</div>
+
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div class="screen active" id="welcomeScreen">
+            <div class="welcome-content">
+                <div class="logo-container">
+                    <div class="main-logo">⭐</div>
+                    <h1 class="app-title">Project Star</h1>
+                    <p class="app-subtitle">Your Cosmic Connection Begins Here</p>
+                </div>
+                <div class="auth-buttons">
+                    <button class="start-button" onclick="showScreen('loginScreen')">
+                        Login ✨
+                    </button>
+                    <button class="start-button secondary" onclick="showScreen('registerScreen')">
+                        Create Account 🌟
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div class="screen" id="loginScreen">
+            <div class="auth-container">
+                <h2 class="auth-title">Welcome Back ✨</h2>
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="loginEmail" required 
+                               placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-input" id="loginPassword" required
+                               placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="nav-btn primary full-width">
+                        Login to Dashboard
+                    </button>
+                    <button type="button" class="nav-btn full-width" onclick="showScreen('welcomeScreen')">
+                        ← Back
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Register Screen -->
+        <div class="screen" id="registerScreen">
+            <div class="onboarding-header">
+                <h2 class="onboarding-title">Join Project Star ✨</h2>
+                <p class="onboarding-subtitle">Create your cosmic profile</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+            </div>
+
+            <!-- Registration Form -->
+            <form id="registerForm">
+                <!-- Step 1: Account Creation -->
+                <div class="onboarding-step active" id="regStep1">
+                    <div class="question-section">
+                        <div class="question-card">
+                            <h3 class="question-title">
+                                <span class="question-icon">📧</span>
+                                Create Your Account
+                            </h3>
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-input" id="regEmail" required
+                                       placeholder="your@email.com">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Password (minimum 6 characters)</label>
+                                <input type="password" class="form-input" id="regPassword" required minlength="6"
+                                       placeholder="Create a strong password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirm Password</label>
+                                <input type="password" class="form-input" id="regPasswordConfirm" required
+                                       placeholder="Re-enter your password">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="nav-buttons">
+                        <button type="button" class="nav-btn" onclick="showScreen('welcomeScreen')">← Back</button>
+                        <button type="button" class="nav-btn primary" onclick="nextRegStep(2)">Continue ➜</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Personal Information -->
+                <div class="onboarding-step" id="regStep2">
+                    <div class="question-section">
+                        <div class="question-card">
+                            <h3 class="question-title">
+                                <span class="question-icon">✨</span>
+                                Tell Us About Yourself
+                            </h3>
+                            <div class="form-group">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-input" id="regName" required
+                                       placeholder="Your name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">I am...</label>
+                                <select class="form-input" id="regGender" required>
+                                    <option value="">Select...</option>
+                                    <option value="female">Female 👩</option>
+                                    <option value="male">Male 👨</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Birthday</label>
+                                <input type="date" class="form-input" id="regBirthday" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Birth Time (Optional - for accurate horoscope)</label>
+                                <input type="time" class="form-input" id="regBirthTime"
+                                       placeholder="HH:MM">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Birth Place (Optional)</label>
+                                <input type="text" class="form-input" id="regBirthPlace" 
+                                       placeholder="City, Country">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="nav-buttons">
+                        <button type="button" class="nav-btn" onclick="prevRegStep(1)">← Back</button>
+                        <button type="button" class="nav-btn primary" onclick="nextRegStep(3)">Continue ➜</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Partner Linking (Optional) -->
+                <div class="onboarding-step" id="regStep3">
+                    <div class="question-section">
+                        <div class="question-card">
+                            <h3 class="question-title">
+                                <span class="question-icon">💕</span>
+                                Link with Your Partner
+                            </h3>
+                            <p style="color: var(--cosmic-purple); margin-bottom: 20px; line-height: 1.6;">
+                                If your partner already has an account, they can share their <strong>Partner Code</strong> with you.
+                                Enter it below to link your profiles together. 
+                                <br><br>
+                                Don't have a code? No worries! You can skip this step and link later from your dashboard.
+                            </p>
+                            <div class="form-group">
+                                <label class="form-label">Partner Code (Optional)</label>
+                                <input type="text" class="form-input" id="regPartnerCode" 
+                                       placeholder="Enter your partner's code">
+                                <p style="color: rgba(167, 139, 250, 0.6); font-size: 12px; margin-top: 8px;">
+                                    💡 Ask your partner for their code from their dashboard
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="nav-buttons">
+                        <button type="button" class="nav-btn" onclick="prevRegStep(2)">← Back</button>
+                        <button type="button" class="nav-btn" onclick="handleRegister(true)">
+                            Skip for Now
+                        </button>
+                        <button type="button" class="nav-btn primary" onclick="handleRegister(false)">
+                            Complete Registration ✨
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loading Screen -->
+        <div class="screen" id="loadingScreen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Creating your cosmic profile...</div>
+                <p style="color: var(--cosmic-purple); margin-top: 10px; font-size: 14px;">
+                    ✨ Please wait a moment
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
+    
+    <script>
+        // Additional initialization for index page
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if already logged in
+            const token = localStorage.getItem('token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/auth/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                .then(res => {
+                    if (res.ok) {
+                        // Redirect to dashboard if token is valid
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        // Clear invalid token
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

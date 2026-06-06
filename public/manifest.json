@@ -1,0 +1,19 @@
+{
+  "name": "Project Star",
+  "short_name": "ProjectStar",
+  "description": "Cosmic sync and cycle tracking couple application",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05020c",
+  "theme_color": "#05020c",
+  "status_bar": "black-translucent",
+  "icons": [
+    {
+      "src": "/star-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
