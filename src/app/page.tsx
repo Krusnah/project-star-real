@@ -3,373 +3,257 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Heart, ArrowRight, UserPlus, LogIn, Clipboard, Check, HelpCircle } from 'lucide-react';
+import { Sparkles, ChevronRight } from 'lucide-react';
 import StarryBackground from '@/components/StarryBackground';
 import GlassCard from '@/components/GlassCard';
 import SoundToggle from '@/components/SoundToggle';
-import { databaseApi, UserProfile } from '@/lib/database';
-import { audioSystem } from '@/lib/audio';
-
-export default function LandingPage() {
+import FloatingHearts from '@/components/FloatingHearts';
+import { databaseApi } from '@/lib/database';
+import { audioSystem } from '@/lib/audio';export default function LandingPage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState<'female' | 'male' | 'other'>('female');
-  const [birthday, setBirthday] = useState('');
-  
-  // Pairing states
-  const [partnerCode, setPartnerCode] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<'anshrit' | 'mahi' | null>(null);
+  const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
     databaseApi.getCurrentUser().then((user) => {
       if (user) {
-        setCurrentUser(user);
-        if (user.couple_id) {
-          router.push('/dashboard');
-        }
+        router.push('/dashboard');
       }
     });
   }, [router]);
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleEnterOrbit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedProfile) return;
     setError('');
     setLoading(true);
     audioSystem.playClick();
 
+    // The secret anniversary passcode is "0603" (March 6th)
+    if (passcode !== '0603') {
+      setError('Incorrect passcode. Hint: Our anniversary date (DDMM) 💖');
+      setLoading(false);
+      return;
+    }
+
     try {
-      if (isLogin) {
-        const user = await databaseApi.signIn(email);
-        setCurrentUser(user);
-        audioSystem.playSuccess();
-        if (user.couple_id) {
+      const user = await databaseApi.selectProfile(selectedProfile);
+      audioSystem.playSuccess();
+      setShowCelebration(true);
+
+      setTimeout(() => {
+        // Direct to onboarding quest if they haven't finished compatibility choices
+        if (user.love_language && user.personality) {
           router.push('/dashboard');
+        } else {
+          router.push('/onboarding');
         }
-      } else {
-        if (!name || !birthday) {
-          throw new Error('Please fill in all fields.');
-        }
-        const user = await databaseApi.signUp(email, name, gender, birthday);
-        setCurrentUser(user);
-        audioSystem.playSuccess();
-      }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed.');
+      }, 1500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Verification failed.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCreateCouple = async () => {
-    if (!currentUser) return;
-    setLoading(true);
-    audioSystem.playClick();
-    try {
-      const couple = await databaseApi.createCouple(currentUser.id);
-      const updatedProfile = await databaseApi.getCurrentUser();
-      setCurrentUser(updatedProfile);
-      audioSystem.playSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create couple.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLinkPartner = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser || !partnerCode.trim()) return;
-    setLoading(true);
-    setError('');
-    audioSystem.playClick();
-    try {
-      const couple = await databaseApi.linkPartner(currentUser.id, partnerCode.trim());
-      audioSystem.playSuccess();
-      router.push('/onboarding');
-    } catch (err: any) {
-      setError(err.message || 'Failed to link with partner. Double check the code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyCode = () => {
-    if (!currentUser) return;
-    navigator.clipboard.writeText(currentUser.id);
-    setCopied(true);
-    audioSystem.playTwinkle();
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSignOut = async () => {
-    await databaseApi.signOut();
-    setCurrentUser(null);
-    audioSystem.playClick();
   };
 
   return (
     <main className="relative min-height-screen flex flex-col items-center justify-center p-4">
       <StarryBackground />
-      
+      <FloatingHearts trigger={showCelebration} onComplete={() => setShowCelebration(false)} />
+
       {/* Top Header Buttons */}
       <div className="absolute top-4 right-4 flex items-center gap-3">
         <SoundToggle />
-        {currentUser && (
-          <button
-            onClick={handleSignOut}
-            className="px-3.5 py-1.5 rounded-full glass-panel hover:bg-red-500/20 border border-red-500/20 text-xs text-red-200 transition-all active:scale-95"
-          >
-            Sign Out
-          </button>
-        )}
       </div>
 
       <div className="w-full max-w-md my-8">
         {/* Animated Brand Title */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', duration: 1.5 }}
-            className="inline-flex p-3 bg-cosmic-purple/30 border border-cosmic-lavender/20 rounded-full mb-3 text-cosmic-lavender shadow-glow"
+            className="inline-flex p-3.5 bg-cosmic-purple/30 border border-cosmic-lavender/20 rounded-full mb-3.5 text-cosmic-lavender shadow-glow"
           >
             <Sparkles className="w-8 h-8 animate-pulse text-cosmic-lavender" />
           </motion.div>
-          
+
           <motion.h1
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
             className="text-4xl font-extrabold tracking-tight text-white font-display"
           >
-            Project <span className="text-transparent bg-clip-text bg-gradient-to-r from-cosmic-lavender via-cosmic-pink to-white text-glow-pink">Star</span>
+            Anshrit <span className="text-cosmic-pink animate-pulse">❤️</span> Mahi
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="text-xs text-cosmic-lavender/70 tracking-widest uppercase mt-1.5"
+            className="text-xs text-cosmic-lavender/70 tracking-widest uppercase mt-2"
           >
-            Your Cosmic Connection & Cycle Sync
+            Our Private Cosmic Space & Sync
           </motion.p>
+
+          <div className="flex justify-center gap-4 mt-3">
+            {['💫', '🌙', '✨', '⭐', '💖'].map((emoji, i) => (
+              <motion.span
+                key={i}
+                className="text-sm"
+                animate={{ y: [0, -5, 0], opacity: [0.5, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 2 + i * 0.4, delay: i * 0.2 }}
+              >
+                {emoji}
+              </motion.span>
+            ))}
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
-          {!currentUser ? (
-            /* AUTH PANEL */
+          {!selectedProfile ? (
+            /* PROFILE SELECTION PANEL */
             <motion.div
-              key="auth-panel"
-              initial={{ opacity: 0, y: 20 }}
+              key="profile-selection"
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              exit={{ opacity: 0, y: -15 }}
             >
               <GlassCard>
-                <div className="flex border-b border-cosmic-lavender/10 pb-4 mb-5">
-                  <button
-                    onClick={() => { setIsLogin(true); audioSystem.playClick(); }}
-                    className={`flex-1 text-center py-2 text-sm font-bold tracking-wider transition-colors duration-200 ${
-                      isLogin ? 'text-white border-b-2 border-cosmic-lavender' : 'text-cosmic-lavender/50 hover:text-cosmic-lavender'
-                    }`}
-                  >
-                    SIGN IN
-                  </button>
-                  <button
-                    onClick={() => { setIsLogin(false); audioSystem.playClick(); }}
-                    className={`flex-1 text-center py-2 text-sm font-bold tracking-wider transition-colors duration-200 ${
-                      !isLogin ? 'text-white border-b-2 border-cosmic-pink' : 'text-cosmic-lavender/50 hover:text-cosmic-lavender'
-                    }`}
-                  >
-                    CREATE ACCOUNT
-                  </button>
+                <div className="text-center mb-6">
+                  <h2 className="text-lg font-bold text-white mb-1">Who is entering orbit? 🚀</h2>
+                  <p className="text-xs text-cosmic-lavender/70">Select your profile to load space details</p>
                 </div>
 
-                <form onSubmit={handleAuth} className="space-y-4">
+                <div className="space-y-4">
+                  {/* Anshrit Option */}
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => { setSelectedProfile('anshrit'); audioSystem.playClick(); }}
+                    className="w-full p-4 rounded-2xl bg-gradient-to-r from-cosmic-purple/20 to-cosmic-violet/30 hover:to-cosmic-pink/20 border border-cosmic-lavender/10 hover:border-cosmic-lavender/25 text-left flex items-center gap-4 transition-all"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-cosmic-purple/30 border border-cosmic-lavender/20 flex items-center justify-center text-3xl shadow-md">
+                      👨
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-extrabold text-white">Anshrit Singh</h3>
+                      <p className="text-[10px] text-cosmic-lavender/60 tracking-wider uppercase mt-0.5">Birthday: Oct 19 · Libra ♎</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-cosmic-lavender/50" />
+                  </motion.button>
+
+                  {/* Mahi Option */}
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => { setSelectedProfile('mahi'); audioSystem.playClick(); }}
+                    className="w-full p-4 rounded-2xl bg-gradient-to-r from-cosmic-pink/15 to-cosmic-purple/20 hover:to-cosmic-pink/30 border border-cosmic-pink/10 hover:border-cosmic-pink/25 text-left flex items-center gap-4 transition-all"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-cosmic-pink/30 border border-cosmic-pink/20 flex items-center justify-center text-3xl shadow-md">
+                      👩
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-extrabold text-white">Mahi Saran</h3>
+                      <p className="text-[10px] text-cosmic-pink/60 tracking-wider uppercase mt-0.5">Birthday: Dec 16 · Sagittarius ♐</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-cosmic-pink/50" />
+                  </motion.button>
+                </div>
+              </GlassCard>
+            </motion.div>
+          ) : (
+            /* PASSCODE FORM */
+            <motion.div
+              key="passcode-form"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+            >
+              <GlassCard>
+                <div className="text-center mb-6">
+                  <div className="text-4xl mb-3">🔑</div>
+                  <h2 className="text-lg font-bold text-white mb-1">Enter Secret Passcode</h2>
+                  <p className="text-xs text-cosmic-lavender/70">
+                    Prove you&apos;re {selectedProfile === 'anshrit' ? 'Anshrit' : 'Mahi'} by entering our date 💖
+                  </p>
+                </div>
+
+                <form onSubmit={handleEnterOrbit} className="space-y-4">
                   {error && (
-                    <div className="text-xs text-red-400 bg-red-950/40 border border-red-500/20 rounded-lg p-3 text-center font-medium">
+                    <div className="text-xs text-red-400 bg-red-950/40 border border-red-500/20 rounded-xl p-3 text-center font-medium">
                       {error}
                     </div>
                   )}
 
-                  {!isLogin && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">NAME / NICKNAME</label>
-                        <input
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="How should your partner call you?"
-                          className="w-full glass-input text-sm focus:border-cosmic-pink"
-                          required
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">GENDER</label>
-                          <select
-                            value={gender}
-                            onChange={(e: any) => setGender(e.target.value)}
-                            className="w-full glass-input text-sm focus:border-cosmic-pink appearance-none cursor-pointer"
-                          >
-                            <option value="female" className="bg-cosmic-black">Female</option>
-                            <option value="male" className="bg-cosmic-black">Male</option>
-                            <option value="other" className="bg-cosmic-black">Other</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">BIRTHDAY</label>
-                          <input
-                            type="date"
-                            value={birthday}
-                            onChange={(e) => setBirthday(e.target.value)}
-                            className="w-full glass-input text-sm focus:border-cosmic-pink cursor-pointer"
-                            required
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
                   <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">EMAIL ADDRESS</label>
+                    <label className="block text-[10px] font-bold tracking-widest text-cosmic-lavender/50 uppercase mb-1.5 text-center">
+                      4-DIGIT ANNIVERSARY CODE (DDMM)
+                    </label>
                     <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. love@cosmic.com"
-                      className="w-full glass-input text-sm"
+                      type="password"
+                      maxLength={4}
+                      value={passcode}
+                      onChange={(e) => setPasscode(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="••••"
+                      className="w-full glass-input text-center text-2xl tracking-[1em] focus:border-cosmic-pink font-bold placeholder-slate-700 py-3"
                       required
+                      autoFocus
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-cosmic-purple to-cosmic-violet hover:from-cosmic-violet hover:to-cosmic-pink text-white font-bold tracking-widest text-sm shadow-md transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {loading ? (
-                      <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : isLogin ? (
-                      <>
-                        ENTER ORBIT <LogIn className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        BEGIN JOURNEY <UserPlus className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              </GlassCard>
-            </motion.div>
-          ) : (
-            /* PAIRING PANEL */
-            <motion.div
-              key="pairing-panel"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <GlassCard>
-                <div className="text-center mb-5">
-                  <h2 className="text-lg font-bold text-white mb-1">Link Your Hearts</h2>
-                  <p className="text-xs text-cosmic-lavender/70">
-                    Connect with your partner to share journal pages, match charts, and sync cycle tracks in real time.
-                  </p>
-                </div>
-
-                {error && (
-                  <div className="text-xs text-red-400 bg-red-950/40 border border-red-500/20 rounded-lg p-3 mb-4 text-center font-medium">
-                    {error}
-                  </div>
-                )}
-
-                <div className="space-y-6">
-                  {/* Generate / Share Code */}
-                  <div className="p-4 rounded-xl bg-cosmic-black/60 border border-cosmic-lavender/10">
-                    <span className="block text-[10px] font-bold text-cosmic-lavender/50 tracking-wider uppercase mb-2">
-                      YOUR PARTNER CODE
-                    </span>
-                    <div className="flex gap-2">
-                      <div className="flex-1 font-mono text-sm font-semibold tracking-wider text-glow text-cosmic-lavender bg-cosmic-purple/30 rounded-lg px-3 py-2 border border-cosmic-lavender/10 flex items-center justify-center">
-                        {currentUser.id}
-                      </div>
-                      <button
-                        onClick={copyCode}
-                        className="px-3 rounded-lg bg-cosmic-purple hover:bg-cosmic-violet text-white transition-colors duration-200 flex items-center justify-center"
-                        title="Copy code"
-                      >
-                        {copied ? <Check className="w-4 h-4 text-green-300" /> : <Clipboard className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    
-                    {!currentUser.couple_id && (
-                      <button
-                        onClick={handleCreateCouple}
-                        disabled={loading}
-                        className="w-full mt-3 py-2 rounded-lg bg-cosmic-lavender/10 hover:bg-cosmic-lavender/20 border border-cosmic-lavender/20 text-xs font-bold text-white tracking-widest transition-all duration-200 cursor-pointer"
-                      >
-                        {loading ? 'GENERATING...' : 'GENERATE HEART LINK'}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 justify-center">
-                    <span className="h-px bg-cosmic-lavender/10 flex-1" />
-                    <span className="text-[10px] text-cosmic-lavender/40 font-bold tracking-widest">OR</span>
-                    <span className="h-px bg-cosmic-lavender/10 flex-1" />
-                  </div>
-
-                  {/* Connect with partner's code */}
-                  <form onSubmit={handleLinkPartner} className="space-y-4">
-                    <div>
-                      <label className="block text-[10px] font-bold text-cosmic-lavender/50 tracking-wider uppercase mb-1.5">
-                        ENTER PARTNER'S CODE
-                      </label>
-                      <input
-                        type="text"
-                        value={partnerCode}
-                        onChange={(e) => setPartnerCode(e.target.value)}
-                        placeholder="Paste partner's code here..."
-                        className="w-full glass-input text-center font-mono text-sm tracking-widest placeholder-slate-600 focus:border-cosmic-pink"
-                        required
-                      />
-                    </div>
-
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedProfile(null); setPasscode(''); setError(''); audioSystem.playClick(); }}
+                      className="flex-1 py-3 rounded-xl border border-cosmic-lavender/10 hover:bg-cosmic-lavender/5 text-cosmic-lavender text-xs font-bold transition-all cursor-pointer"
+                    >
+                      BACK
+                    </button>
                     <button
                       type="submit"
-                      disabled={loading || !partnerCode.trim()}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-cosmic-pink to-cosmic-lavender hover:from-cosmic-lavender hover:to-white text-cosmic-black font-bold tracking-widest text-sm shadow-md transition-all active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={loading || passcode.length < 4}
+                      className="flex-[2] py-3 rounded-xl bg-gradient-to-r from-cosmic-pink to-cosmic-lavender hover:from-cosmic-lavender hover:to-white text-cosmic-black font-extrabold tracking-widest text-xs shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       {loading ? (
                         <span className="w-5 h-5 border-2 border-cosmic-black border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <>
-                          LINK PARTNER <Heart className="w-4 h-4 text-cosmic-black fill-current animate-pulse" />
-                        </>
+                        <>ENTER SPACE ✨</>
                       )}
                     </button>
-                  </form>
-                </div>
+                  </div>
+                </form>
               </GlassCard>
             </motion.div>
           )}
         </AnimatePresence>
-
-        <div className="mt-8 text-center flex justify-center items-center gap-2">
-          <HelpCircle className="w-4 h-4 text-cosmic-lavender/50" />
-          <p className="text-[11px] text-cosmic-lavender/50 font-medium">
-            Demo Tip: Sign up User A. Copy code. Sign up User B in another tab. Paste A's code to link instantly.
-          </p>
-        </div>
       </div>
+
+      {/* Celebration overlay */}
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-cosmic-black/70 backdrop-blur-md pointer-events-none"
+          >
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 150 }}
+              className="text-center"
+            >
+              <div className="text-7xl mb-4">✨🚀💖</div>
+              <h2 className="text-3xl font-extrabold text-white text-glow font-display mb-2">Entering Orbit!</h2>
+              <p className="text-sm text-cosmic-lavender/80">Welcome to our cosmic connection portal, {selectedProfile === 'anshrit' ? 'Anshrit' : 'Mahi'}...</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

@@ -20,10 +20,9 @@ export default function CycleWheel({
   totalDays = 28,
   periodDuration = 5,
   ovulationDay = 14,
-  phase = 'follicular',
   isPartnerView = false,
   partnerName = 'Her'
-}: CycleWheelProps) {
+}: Omit<CycleWheelProps, 'phase'>) {
   
   const radius = 90;
   const strokeWidth = 10;
@@ -138,8 +137,6 @@ export default function CycleWheel({
           {/* Segmented color lines */}
           {Array.from({ length: totalDays }).map((_, i) => {
             const dayNum = i + 1;
-            const segmentAngle = (360 / totalDays);
-            const startAngle = i * segmentAngle;
             // Draw individual dashes for a beautiful starry/clockwork feel
             const segmentPhase = getDayPhase(dayNum);
             const color = getPhaseColor(segmentPhase);

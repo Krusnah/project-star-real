@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Heart, ChevronRight, ChevronLeft, ShieldAlert, Sparkle, Calendar, Sliders } from 'lucide-react';
+import { Sparkles, Heart, ChevronRight, ChevronLeft, Moon } from 'lucide-react';
 import StarryBackground from '@/components/StarryBackground';
 import GlassCard from '@/components/GlassCard';
 import { databaseApi, UserProfile } from '@/lib/database';
 import { audioSystem } from '@/lib/audio';
-import { getZodiacSign } from '@/lib/zodiac';
 
 const LOVE_LANGUAGES = [
   'Words of Affirmation',
@@ -48,10 +47,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Form states
-  const [nickname, setNickname] = useState('');
-  const [birthday, setBirthday] = useState('');
-  const [anniversary, setAnniversary] = useState('');
+  // Compatibility Quest states
   const [personality, setPersonality] = useState('Creative');
   const [customPersonality, setCustomPersonality] = useState('');
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -59,11 +55,8 @@ export default function OnboardingPage() {
   const [favoriteThings, setFavoriteThings] = useState('');
   const [loveLanguage, setLoveLanguage] = useState(LOVE_LANGUAGES[0]);
   const [customLoveLanguage, setCustomLoveLanguage] = useState('');
-  
-  // E2EE state
-  const [passphrase, setPassphrase] = useState('');
-  
-  // Period states (For female / tracker users)
+
+  // Period states (for Mahi Saran / tracker users)
   const [trackPeriod, setTrackPeriod] = useState(true);
   const [lastPeriodDate, setLastPeriodDate] = useState('');
   const [cycleLength, setCycleLength] = useState(28);
@@ -72,8 +65,9 @@ export default function OnboardingPage() {
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [customSymptom, setCustomSymptom] = useState('');
   const [pmsInfo, setPmsInfo] = useState('Moderate');
-  const [customPMS, setCustomPMS] = useState('');
-  const [healthNotes, setHealthNotes] = useState('');
+
+  // Total steps: Step 1 (Vibe) + Step 2 (Hobbies) + optional Step 3 (Cycle)
+  const totalSteps = trackPeriod ? 3 : 2;
 
   useEffect(() => {
     databaseApi.getCurrentUser().then((profile) => {
@@ -81,10 +75,40 @@ export default function OnboardingPage() {
         router.push('/');
       } else {
         setUser(profile);
-        setNickname(profile.nickname || profile.name);
-        setBirthday(profile.birthday || '');
         if (profile.gender !== 'female') {
           setTrackPeriod(false);
+        }
+        // Pre-fill values if available
+        if (profile.personality) {
+          if (['Creative', 'Analytical', 'Adventurous', 'Introverted', 'Extroverted', 'Empathic'].includes(profile.personality)) {
+            setPersonality(profile.personality);
+          } else {
+            setPersonality('Other');
+            setCustomPersonality(profile.personality);
+          }
+        }
+        if (profile.love_language) {
+          if (LOVE_LANGUAGES.includes(profile.love_language)) {
+            setLoveLanguage(profile.love_language);
+          } else {
+            setLoveLanguage('Other');
+            setCustomLoveLanguage(profile.love_language);
+          }
+        }
+        if (profile.interests) {
+          setSelectedInterests(profile.interests.filter(i => INTERESTS.includes(i)));
+        }
+        if (profile.favorite_things && profile.favorite_things.length > 0) {
+          setFavoriteThings(profile.favorite_things[0]);
+        }
+        if (profile.last_period_date) {
+          setLastPeriodDate(profile.last_period_date);
+        }
+        if (profile.average_cycle_length) {
+          setCycleLength(profile.average_cycle_length);
+        }
+        if (profile.average_period_duration) {
+          setPeriodDuration(profile.average_period_duration);
         }
       }
     });
@@ -124,7 +148,7 @@ export default function OnboardingPage() {
     try {
       const finalPersonality = personality === 'Other' ? customPersonality : personality;
       const finalLoveLanguage = loveLanguage === 'Other' ? customLoveLanguage : loveLanguage;
-      
+
       const allInterests = [...selectedInterests];
       if (customInterest.trim()) {
         allInterests.push(customInterest.trim());
@@ -135,15 +159,8 @@ export default function OnboardingPage() {
         allSymptoms.push(customSymptom.trim());
       }
 
-      const finalPMSInfo = pmsInfo === 'Other' ? customPMS : pmsInfo;
-
-      const zodiacSign = birthday ? getZodiacSign(birthday) : undefined;
-
       // Update User profile
       const updates: Partial<UserProfile> = {
-        nickname,
-        birthday,
-        zodiac_sign: zodiacSign,
         personality: finalPersonality,
         interests: allInterests,
         love_language: finalLoveLanguage,
@@ -151,36 +168,25 @@ export default function OnboardingPage() {
         average_cycle_length: cycleLength,
         average_period_duration: periodDuration,
         pms_duration: pmsDuration,
-        health_notes: healthNotes,
         last_period_date: lastPeriodDate || undefined,
       };
 
       await databaseApi.updateUserProfile(user.id, updates);
 
-      // Save anniversary date to couple too
-      if (user.couple_id && anniversary) {
-        await databaseApi.updateUserProfile(user.id, {
-          health_notes: `${healthNotes}\n[Anniversary: ${anniversary}]`
-        });
-      }
-
-      // Store passphrase locally in sessionStorage for E2EE (never upload it!)
-      if (passphrase) {
-        sessionStorage.setItem(`ps_e2ee_${user.couple_id}`, passphrase);
-        localStorage.setItem(`ps_e2ee_configured_${user.couple_id}`, 'true');
+      // Seed relationship anniversary inside couple
+      if (user.couple_id) {
+        await databaseApi.updateStreak(user.couple_id);
       }
 
       audioSystem.playSuccess();
       router.push('/dashboard');
     } catch (error) {
       console.error(error);
-      alert('Failed to save onboarding details. Please try again.');
+      alert('Failed to save compatibility quest details.');
     } finally {
       setLoading(false);
     }
   };
-
-  const currentZodiac = birthday ? getZodiacSign(birthday) : null;
 
   return (
     <main className="relative min-height-screen flex flex-col items-center justify-center p-4">
@@ -190,14 +196,15 @@ export default function OnboardingPage() {
         {/* Progress header */}
         <div className="flex items-center justify-between px-2 mb-4">
           <span className="text-[10px] text-cosmic-lavender/50 tracking-widest font-bold uppercase">
-            STATION {step} OF {trackPeriod ? 4 : 3}
+            QUEST STAGE {step} OF {totalSteps}
           </span>
           <div className="flex gap-1.5">
-            {Array.from({ length: trackPeriod ? 4 : 3 }).map((_, idx) => (
+            {Array.from({ length: totalSteps }).map((_, idx) => (
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx + 1 === step ? 'w-6 bg-cosmic-pink' : 'w-2 bg-cosmic-lavender/25'
+                  idx + 1 === step ? 'w-6 bg-cosmic-pink' : 
+                  idx + 1 < step ? 'w-2 bg-cosmic-lavender/60' : 'w-2 bg-cosmic-lavender/25'
                 }`}
               />
             ))}
@@ -205,7 +212,7 @@ export default function OnboardingPage() {
         </div>
 
         <AnimatePresence mode="wait">
-          {/* STEP 1: Basic Profile */}
+          {/* STEP 1: Personality Vibe & Love Languages */}
           {step === 1 && (
             <motion.div
               key="step1"
@@ -215,116 +222,36 @@ export default function OnboardingPage() {
             >
               <GlassCard>
                 <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                  <Sparkle className="w-5 h-5 text-cosmic-pink animate-pulse" />
-                  Cosmic Identity
+                  <Sparkles className="w-5 h-5 text-cosmic-pink animate-pulse" />
+                  Cosmic Vibe & Energy
                 </h2>
                 <p className="text-xs text-cosmic-lavender/70 mb-5">
-                  Let's customize your profile. Your partner will see this dashboard information.
+                  Let&apos;s identify your energy signature. Your partner will see this profile on their dashboard.
                 </p>
 
-                <div className="space-y-4">
+                <div className="space-y-5">
+                  {/* Personality Select */}
                   <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">NICKNAME</label>
-                    <input
-                      type="text"
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      placeholder="e.g. Princess, Star, Honey"
-                      className="w-full glass-input text-sm focus:border-cosmic-pink"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">BIRTHDAY</label>
-                      <input
-                        type="date"
-                        value={birthday}
-                        onChange={(e) => setBirthday(e.target.value)}
-                        className="w-full glass-input text-sm focus:border-cosmic-pink cursor-pointer"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">ANNIVERSARY</label>
-                      <input
-                        type="date"
-                        value={anniversary}
-                        onChange={(e) => setAnniversary(e.target.value)}
-                        className="w-full glass-input text-sm focus:border-cosmic-pink cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {currentZodiac && (
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="p-3 bg-cosmic-purple/30 border border-cosmic-lavender/15 rounded-xl flex items-center justify-between"
-                    >
-                      <span className="text-xs text-cosmic-lavender/70">Calculated Zodiac Sign</span>
-                      <span className="text-sm font-bold text-glow text-white tracking-wider uppercase">
-                        ✨ {currentZodiac}
-                      </span>
-                    </motion.div>
-                  )}
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      onClick={nextStep}
-                      disabled={!nickname || !birthday}
-                      className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
-                    >
-                      CONTINUE <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          )}
-
-          {/* STEP 2: Personality & Interests */}
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <GlassCard>
-                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-cosmic-pink animate-pulse" />
-                  Passions & Energy
-                </h2>
-                <p className="text-xs text-cosmic-lavender/70 mb-5">
-                  Share your personality, hobbies, and love languages to unlock deep matching analytics.
-                </p>
-
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
-                  {/* Personality */}
-                  <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">PERSONALITY STYLE</label>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">YOUR PERSONALITY VIBE</label>
                     <select
                       value={personality}
                       onChange={(e) => setPersonality(e.target.value)}
                       className="w-full glass-input text-sm appearance-none cursor-pointer"
                     >
-                      <option value="Creative" className="bg-cosmic-black">Creative & Artistic</option>
-                      <option value="Analytical" className="bg-cosmic-black">Analytical & Logical</option>
-                      <option value="Adventurous" className="bg-cosmic-black">Adventurous & Wild</option>
-                      <option value="Introverted" className="bg-cosmic-black">Introspective & Cozy</option>
-                      <option value="Extroverted" className="bg-cosmic-black">Social & Outgoing</option>
-                      <option value="Empathic" className="bg-cosmic-black">Nurturing & Empathic</option>
-                      <option value="Other" className="bg-cosmic-black">Custom / Write My Own</option>
+                      <option value="Creative" className="bg-cosmic-black">Creative & Dreamy 🎨</option>
+                      <option value="Analytical" className="bg-cosmic-black">Analytical & Caring 💡</option>
+                      <option value="Adventurous" className="bg-cosmic-black">Adventurous & Wild 🌍</option>
+                      <option value="Introverted" className="bg-cosmic-black">Cozy & Quiet 🍵</option>
+                      <option value="Extroverted" className="bg-cosmic-black">Cheerful & Outgoing 🎉</option>
+                      <option value="Empathic" className="bg-cosmic-black">Empathic & Protective 🤍</option>
+                      <option value="Other" className="bg-cosmic-black">Custom Vibe...</option>
                     </select>
-
                     {personality === 'Other' && (
                       <input
                         type="text"
                         value={customPersonality}
                         onChange={(e) => setCustomPersonality(e.target.value)}
-                        placeholder="Describe your vibe (e.g. Dreamy day-dreamer)"
+                        placeholder="Describe your vibe (e.g. Silly day-dreamer)"
                         className="w-full glass-input text-sm mt-2 focus:border-cosmic-pink"
                         required
                       />
@@ -361,19 +288,49 @@ export default function OnboardingPage() {
                         Custom / Other
                       </button>
                     </div>
-
                     {loveLanguage === 'Other' && (
                       <input
                         type="text"
                         value={customLoveLanguage}
                         onChange={(e) => setCustomLoveLanguage(e.target.value)}
-                        placeholder="Enter your love language (e.g., Food sharing)"
+                        placeholder="Enter your love language"
                         className="w-full glass-input text-sm mt-2 focus:border-cosmic-pink"
                         required
                       />
                     )}
                   </div>
 
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={nextStep}
+                      className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                    >
+                      CONTINUE <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+
+          {/* STEP 2: Hobbies & Passions & Favorite Things */}
+          {step === 2 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <GlassCard>
+                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-cosmic-pink animate-pulse" />
+                  Hobbies & Favorite Things
+                </h2>
+                <p className="text-xs text-cosmic-lavender/70 mb-5">
+                  Choose your interests and write down things you love so your partner can surprise you!
+                </p>
+
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
                   {/* Interests */}
                   <div>
                     <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">INTERESTS & HOBBIES</label>
@@ -400,7 +357,7 @@ export default function OnboardingPage() {
                       type="text"
                       value={customInterest}
                       onChange={(e) => setCustomInterest(e.target.value)}
-                      placeholder="Add custom interest (e.g., Star gazing, Starcraft)..."
+                      placeholder="Add custom interest..."
                       className="w-full glass-input text-sm focus:border-cosmic-pink"
                     />
                   </div>
@@ -411,8 +368,8 @@ export default function OnboardingPage() {
                     <textarea
                       value={favoriteThings}
                       onChange={(e) => setFavoriteThings(e.target.value)}
-                      placeholder="List your favorite food, flowers, movies, snacks so your partner can surprise you."
-                      rows={2}
+                      placeholder="E.g., dark chocolates, roses, stargazing dates, vanilla lattes..."
+                      rows={3}
                       className="w-full glass-input text-sm resize-none focus:border-cosmic-pink"
                     />
                   </div>
@@ -425,19 +382,29 @@ export default function OnboardingPage() {
                   >
                     <ChevronLeft className="w-4 h-4" /> BACK
                   </button>
-                  <button
-                    onClick={nextStep}
-                    className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
-                  >
-                    CONTINUE <ChevronRight className="w-4 h-4" />
-                  </button>
+                  {trackPeriod ? (
+                    <button
+                      onClick={nextStep}
+                      className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                    >
+                      CONTINUE <ChevronRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleFinish}
+                      disabled={loading}
+                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cosmic-pink to-cosmic-lavender hover:from-cosmic-lavender hover:to-white text-cosmic-black text-xs font-extrabold tracking-widest flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+                    >
+                      {loading ? 'SAVING...' : 'ENTER SPACE ✨'}
+                    </button>
+                  )}
                 </div>
               </GlassCard>
             </motion.div>
           )}
 
-          {/* STEP 3: E2EE Passphrase */}
-          {step === 3 && (
+          {/* STEP 3: Her Cycle Tracking Profile (Mahi Saran Only) */}
+          {step === 3 && trackPeriod && (
             <motion.div
               key="step3"
               initial={{ opacity: 0, x: 20 }}
@@ -446,81 +413,11 @@ export default function OnboardingPage() {
             >
               <GlassCard>
                 <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-cosmic-pink animate-pulse" />
-                  E2EE Privacy Shield
-                </h2>
-                <p className="text-xs text-cosmic-lavender/70 mb-5">
-                  Configure client-side End-to-End Encryption (E2EE) to secure your shared couple journals and daily questions.
-                </p>
-
-                <div className="space-y-4">
-                  <div className="p-3 bg-cosmic-pink-glow/10 border border-cosmic-pink/20 rounded-xl text-xs text-cosmic-pink leading-relaxed flex items-start gap-2">
-                    <span>🔒</span>
-                    <p>
-                      <strong>How it works:</strong> You and your partner will set the exact same passphrase. Your messages and notes are encrypted on your device before going to the server. Nobody else (not even the developers) can read them.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">SHARED COUPLE PASSPHRASE</label>
-                    <input
-                      type="password"
-                      value={passphrase}
-                      onChange={(e) => setPassphrase(e.target.value)}
-                      placeholder="Create a memorable secret (e.g. ParisDate2025)"
-                      className="w-full glass-input text-sm font-mono tracking-widest text-center"
-                      required
-                    />
-                    <span className="block text-[10px] text-cosmic-lavender/50 mt-1.5 leading-normal">
-                      ⚠️ **Attention:** Share this passphrase with your partner. You must enter the exact same code on both devices.
-                    </span>
-                  </div>
-
-                  <div className="pt-4 flex justify-between">
-                    <button
-                      onClick={prevStep}
-                      className="px-4 py-2.5 rounded-xl border border-cosmic-lavender/10 text-cosmic-lavender hover:bg-cosmic-lavender/10 text-xs font-bold tracking-wider flex items-center gap-1 transition-all duration-200 cursor-pointer"
-                    >
-                      <ChevronLeft className="w-4 h-4" /> BACK
-                    </button>
-                    {trackPeriod ? (
-                      <button
-                        onClick={nextStep}
-                        disabled={!passphrase}
-                        className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
-                      >
-                        CONTINUE <ChevronRight className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleFinish}
-                        disabled={loading || !passphrase}
-                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cosmic-pink to-cosmic-lavender hover:from-cosmic-lavender hover:to-white text-cosmic-black text-xs font-extrabold tracking-widest flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
-                      >
-                        {loading ? 'STORING ORBIT...' : 'ENTER GALAXY ✨'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          )}
-
-          {/* STEP 4: Her Period Tracking Profile */}
-          {step === 4 && trackPeriod && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <GlassCard>
-                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-cosmic-pink animate-pulse" />
+                  <Moon className="w-5 h-5 text-cosmic-pink animate-pulse" />
                   Cycle Predictor Setup
                 </h2>
                 <p className="text-xs text-cosmic-lavender/70 mb-5">
-                  Set your cycle baselines to predict period, ovulation, fertile windows, and provide partner recommendations.
+                  Set Mahi&apos;s cycle details to calculate menstrual calendars and keep Anshrit synchronized 🌙
                 </p>
 
                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
@@ -530,7 +427,7 @@ export default function OnboardingPage() {
                       type="date"
                       value={lastPeriodDate}
                       onChange={(e) => setLastPeriodDate(e.target.value)}
-                      className="w-full glass-input text-sm cursor-pointer"
+                      className="w-full glass-input text-sm cursor-pointer focus:border-cosmic-pink"
                       required
                     />
                   </div>
@@ -551,7 +448,6 @@ export default function OnboardingPage() {
                       />
                       <span className="block text-[9px] text-cosmic-lavender/50 text-right">Avg: 28 days</span>
                     </div>
-
                     <div>
                       <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1 flex items-center justify-between">
                         <span>PERIOD DURATION</span>
@@ -567,6 +463,22 @@ export default function OnboardingPage() {
                       />
                       <span className="block text-[9px] text-cosmic-lavender/50 text-right">Avg: 5 days</span>
                     </div>
+                  </div>
+
+                  {/* PMS Duration */}
+                  <div>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1 flex items-center justify-between">
+                      <span>PMS / PRE-PERIOD DAYS</span>
+                      <span className="text-cosmic-pink text-[11px] font-bold">{pmsDuration} days before</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="14"
+                      value={pmsDuration}
+                      onChange={(e) => setPmsDuration(parseInt(e.target.value, 10))}
+                      className="w-full accent-cosmic-pink h-1.5 rounded-lg bg-cosmic-purple/40 cursor-pointer"
+                    />
                   </div>
 
                   {/* Typical Symptoms */}
@@ -595,14 +507,14 @@ export default function OnboardingPage() {
                       type="text"
                       value={customSymptom}
                       onChange={(e) => setCustomSymptom(e.target.value)}
-                      placeholder="Add custom symptom (e.g. Back pain, migraine)..."
+                      placeholder="Add custom symptom..."
                       className="w-full glass-input text-sm focus:border-cosmic-pink"
                     />
                   </div>
 
                   {/* PMS Details */}
                   <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">TYPICAL PMS INTENSITY</label>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">PMS INTENSITY</label>
                     <div className="grid grid-cols-4 gap-2">
                       {['None', 'Mild', 'Moderate', 'Severe'].map((pms) => (
                         <button
@@ -618,41 +530,7 @@ export default function OnboardingPage() {
                           {pms}
                         </button>
                       ))}
-                      <button
-                        type="button"
-                        onClick={() => { setPmsInfo('Other'); audioSystem.playClick(); }}
-                        className={`col-span-4 py-2 rounded-lg text-center text-xs font-medium border transition-all duration-200 ${
-                          pmsInfo === 'Other'
-                            ? 'bg-cosmic-purple/40 border-cosmic-lavender text-white'
-                            : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/30'
-                        }`}
-                      >
-                        Custom / Describe PMS
-                      </button>
                     </div>
-
-                    {pmsInfo === 'Other' && (
-                      <input
-                        type="text"
-                        value={customPMS}
-                        onChange={(e) => setCustomPMS(e.target.value)}
-                        placeholder="Describe PMS symptoms (e.g. Intense mood swings, mood drops)"
-                        className="w-full glass-input text-sm mt-2 focus:border-cosmic-pink"
-                        required
-                      />
-                    )}
-                  </div>
-
-                  {/* Health Notes */}
-                  <div>
-                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">ADDITIONAL HEALTH NOTES</label>
-                    <textarea
-                      value={healthNotes}
-                      onChange={(e) => setHealthNotes(e.target.value)}
-                      placeholder="E.g., birth control details, cycle irregularity, supplements."
-                      rows={2}
-                      className="w-full glass-input text-sm resize-none focus:border-cosmic-pink"
-                    />
                   </div>
                 </div>
 
@@ -668,7 +546,7 @@ export default function OnboardingPage() {
                     disabled={loading || !lastPeriodDate}
                     className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cosmic-pink to-cosmic-lavender hover:from-cosmic-lavender hover:to-white text-cosmic-black text-xs font-extrabold tracking-widest flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
                   >
-                    {loading ? 'STORING ORBIT...' : 'ENTER GALAXY ✨'}
+                    {loading ? 'SAVING...' : 'ENTER SPACE ✨'}
                   </button>
                 </div>
               </GlassCard>

@@ -11,10 +11,103 @@ export const supabase = useSupabase ? createClient(supabaseUrl, supabaseAnonKey)
 
 console.log(`✨ Project Star Database: Using ${useSupabase ? 'Supabase Cloud' : 'Browser LocalStorage Fallback'}`);
 
+async function hashPassword(password: string): Promise<string> {
+  if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+    return password;
+  }
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function initializeCustomDatabase() {
+  const coupleId = 'anshrit-mahi';
+  const today = new Date().toISOString().split('T')[0];
+
+  const seedCouple: Couple = {
+    id: coupleId,
+    anniversary_date: '2026-03-06',
+    love_streak: 1,
+    last_streak_update: today,
+    partner_1_id: 'anshrit',
+    partner_2_id: 'mahi',
+    created_at: new Date().toISOString(),
+  };
+
+  const seedAnshrit: UserProfile = {
+    id: 'anshrit',
+    email: 'anshrit',
+    name: 'Anshrit Singh',
+    nickname: 'Anshrit',
+    gender: 'male',
+    birthday: '2004-10-19',
+    couple_id: coupleId,
+    average_cycle_length: 28,
+    average_period_duration: 5,
+    pms_duration: 7,
+    created_at: new Date().toISOString(),
+  };
+
+  const seedMahi: UserProfile = {
+    id: 'mahi',
+    email: 'mahi',
+    name: 'Mahi Saran',
+    nickname: 'Mahi',
+    gender: 'female',
+    birthday: '2005-12-16',
+    couple_id: coupleId,
+    average_cycle_length: 28,
+    average_period_duration: 5,
+    pms_duration: 7,
+    created_at: new Date().toISOString(),
+  };
+
+  if (supabase) {
+    try {
+      const { data: couple } = await supabase.from('couples').select('*').eq('id', coupleId).maybeSingle();
+      if (!couple) {
+        await supabase.from('couples').insert([seedCouple]);
+      }
+      
+      const { data: anshrit } = await supabase.from('profiles').select('*').eq('id', 'anshrit').maybeSingle();
+      if (!anshrit) {
+        await supabase.from('profiles').insert([seedAnshrit]);
+      }
+      
+      const { data: mahi } = await supabase.from('profiles').select('*').eq('id', 'mahi').maybeSingle();
+      if (!mahi) {
+        await supabase.from('profiles').insert([seedMahi]);
+      }
+    } catch (e) {
+      console.error('Supabase initialization error:', e);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const localCouples = getStorageItem<Couple[]>('ps_couples', []);
+    if (!localCouples.find(c => c.id === coupleId)) {
+      localCouples.push(seedCouple);
+      setStorageItem('ps_couples', localCouples);
+    }
+
+    const localProfiles = getStorageItem<UserProfile[]>('ps_profiles', []);
+    if (!localProfiles.find(u => u.id === 'anshrit')) {
+      localProfiles.push(seedAnshrit);
+    }
+    if (!localProfiles.find(u => u.id === 'mahi')) {
+      localProfiles.push(seedMahi);
+    }
+    setStorageItem('ps_profiles', localProfiles);
+  }
+}
+
 // Define TypeScript interfaces matching our database schema
 export interface UserProfile {
   id: string;
   email: string;
+  password_hash?: string;
   name: string;
   nickname: string;
   gender: 'female' | 'male' | 'other';
@@ -177,7 +270,7 @@ class LocalDatabase {
   }
 
   // Auth
-  async signUp(email: string, name: string, gender: 'female' | 'male' | 'other', birthday: string): Promise<UserProfile> {
+  async signUp(email: string, passwordHash: string, name: string, gender: 'female' | 'male' | 'other', birthday: string): Promise<UserProfile> {
     const users = getStorageItem<UserProfile[]>('ps_profiles', []);
     
     // Check duplication
@@ -189,6 +282,7 @@ class LocalDatabase {
     const newUser: UserProfile = {
       id: Math.random().toString(36).substring(2, 11),
       email: email.toLowerCase(),
+      password_hash: passwordHash,
       name,
       nickname: name,
       gender,
@@ -205,11 +299,14 @@ class LocalDatabase {
     return newUser;
   }
 
-  async signIn(email: string): Promise<UserProfile> {
+  async signIn(email: string, passwordHash: string): Promise<UserProfile> {
     const users = getStorageItem<UserProfile[]>('ps_profiles', []);
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (!user) {
       throw new Error('User not found. Please sign up first.');
+    }
+    if (user.password_hash && user.password_hash !== passwordHash) {
+      throw new Error('Incorrect password. Please try again.');
     }
     this.setCurrentUserId(user.id);
     return user;
@@ -364,10 +461,10 @@ class LocalDatabase {
       encrypted_title: encryptedTitle,
       encrypted_description: encryptedDescription,
       iv,
-      photoUrl,
+      photo_url: photoUrl,
       date,
       created_at: new Date().toISOString()
-    } as any;
+    };
     list.push(newMemory);
     setStorageItem('ps_memories', list);
     return newMemory;
@@ -495,7 +592,8 @@ export const localDb = new LocalDatabase();
 
 export const databaseApi = {
   // Auth Operations
-  async signUp(email: string, name: string, gender: 'female' | 'male' | 'other', birthday: string): Promise<UserProfile> {
+  async signUp(email: string, password: string, name: string, gender: 'female' | 'male' | 'other', birthday: string): Promise<UserProfile> {
+    const passwordHash = await hashPassword(password);
     if (supabase) {
       const { data: existingUser } = await supabase
         .from('profiles')
@@ -508,6 +606,7 @@ export const databaseApi = {
       const newUser: UserProfile = {
         id: Math.random().toString(36).substring(2, 11),
         email: email.toLowerCase(),
+        password_hash: passwordHash,
         name,
         nickname: name,
         gender,
@@ -522,10 +621,11 @@ export const databaseApi = {
       localDb.setCurrentUserId(newUser.id);
       return newUser;
     }
-    return localDb.signUp(email, name, gender, birthday);
+    return localDb.signUp(email, passwordHash, name, gender, birthday);
   },
 
-  async signIn(email: string): Promise<UserProfile> {
+  async signIn(email: string, password: string): Promise<UserProfile> {
+    const passwordHash = await hashPassword(password);
     if (supabase) {
       const { data: user, error } = await supabase
         .from('profiles')
@@ -536,10 +636,13 @@ export const databaseApi = {
       if (!user) {
         throw new Error('User not found. Please sign up first.');
       }
+      if (user.password_hash && user.password_hash !== passwordHash) {
+        throw new Error('Incorrect password. Please try again.');
+      }
       localDb.setCurrentUserId(user.id);
       return user;
     }
-    return localDb.signIn(email);
+    return localDb.signIn(email, passwordHash);
   },
 
   async signOut(): Promise<void> {
@@ -548,6 +651,7 @@ export const databaseApi = {
   },
 
   async getCurrentUser(): Promise<UserProfile | null> {
+    await initializeCustomDatabase();
     const uid = localDb.getCurrentUserId();
     if (!uid) return null;
     if (supabase) {
@@ -798,7 +902,7 @@ export const databaseApi = {
       };
       const { error } = await supabase.from('memories').insert([newMemory]);
       if (error) throw new Error(error.message);
-      return newMemory as any;
+      return newMemory as Memory;
     }
     return localDb.saveMemory(coupleId, encryptedTitle, encryptedDescription, iv, photoUrl, date);
   },
@@ -1009,5 +1113,99 @@ export const databaseApi = {
       return profile;
     }
     return localDb.updateUserProfile(userId, updates);
+  },
+
+  async selectProfile(uid: 'anshrit' | 'mahi'): Promise<UserProfile> {
+    await initializeCustomDatabase();
+    localDb.setCurrentUserId(uid);
+    if (supabase) {
+      const { data: user } = await supabase.from('profiles').select('*').eq('id', uid).single();
+      return user;
+    }
+    const user = await localDb.getUserProfile(uid);
+    if (!user) throw new Error('User profile seed not found.');
+    return user;
+  },
+
+  async getLoveNote(coupleId: string): Promise<string> {
+    const noteId = `love-note-${coupleId}`;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('journal_entries')
+        .select('encrypted_content')
+        .eq('id', noteId)
+        .maybeSingle();
+      if (error || !data) return '';
+      return data.encrypted_content;
+    }
+    const journals = getStorageItem<JournalEntry[]>('ps_journals', []);
+    const match = journals.find(j => j.id === noteId);
+    return match ? match.encrypted_content : '';
+  },
+
+  async saveLoveNote(coupleId: string, authorId: string, content: string): Promise<void> {
+    const noteId = `love-note-${coupleId}`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (supabase) {
+      const { data: existing } = await supabase
+        .from('journal_entries')
+        .select('id')
+        .eq('id', noteId)
+        .maybeSingle();
+      if (existing) {
+        await supabase
+          .from('journal_entries')
+          .update({ encrypted_content: content, author_id: authorId })
+          .eq('id', noteId);
+      } else {
+        const newEntry = {
+          id: noteId,
+          couple_id: coupleId,
+          author_id: authorId,
+          encrypted_title: 'Love Note',
+          encrypted_content: content,
+          iv: 'plain',
+          date: todayStr,
+          created_at: new Date().toISOString(),
+        };
+        await supabase.from('journal_entries').insert([newEntry]);
+      }
+      return;
+    }
+    const journals = getStorageItem<JournalEntry[]>('ps_journals', []);
+    const idx = journals.findIndex(j => j.id === noteId);
+    if (idx !== -1) {
+      journals[idx].encrypted_content = content;
+      journals[idx].author_id = authorId;
+    } else {
+      journals.push({
+        id: noteId,
+        couple_id: coupleId,
+        author_id: authorId,
+        encrypted_title: 'Love Note',
+        encrypted_content: content,
+        iv: 'plain',
+        date: todayStr,
+        created_at: new Date().toISOString(),
+      });
+    }
+    setStorageItem('ps_journals', journals);
+  },
+
+  async getCosmicSeedScore(coupleId: string): Promise<number> {
+    try {
+      const journals = await this.getJournalEntries(coupleId);
+      const realJournals = journals.filter(j => !j.id.startsWith('love-note'));
+      const bucket = await this.getBucketList(coupleId);
+      const completedBucket = bucket.filter(b => b.completed);
+      const gifts = await this.getVirtualGifts(coupleId);
+      const couple = await this.getCoupleDetails(coupleId);
+      const streakCount = couple ? couple.love_streak : 1;
+
+      const score = (realJournals.length * 6) + (completedBucket.length * 10) + (gifts.length * 3) + (streakCount * 4);
+      return Math.min(100, score);
+    } catch {
+      return 10;
+    }
   }
 };

@@ -29,6 +29,38 @@ export interface CompatibilityResult {
   insights: string[];
 }
 
+// Unicode symbols for each zodiac sign
+export const ZODIAC_SYMBOLS: Record<ZodiacSign, string> = {
+  Aries: '♈',
+  Taurus: '♉',
+  Gemini: '♊',
+  Cancer: '♋',
+  Leo: '♌',
+  Virgo: '♍',
+  Libra: '♎',
+  Scorpio: '♏',
+  Sagittarius: '♐',
+  Capricorn: '♑',
+  Aquarius: '♒',
+  Pisces: '♓',
+};
+
+// Zodiac elements for richer descriptions
+export const ZODIAC_ELEMENTS: Record<ZodiacSign, 'Fire' | 'Earth' | 'Air' | 'Water'> = {
+  Aries: 'Fire',
+  Leo: 'Fire',
+  Sagittarius: 'Fire',
+  Taurus: 'Earth',
+  Virgo: 'Earth',
+  Capricorn: 'Earth',
+  Gemini: 'Air',
+  Libra: 'Air',
+  Aquarius: 'Air',
+  Cancer: 'Water',
+  Scorpio: 'Water',
+  Pisces: 'Water',
+};
+
 const ZODIAC_COMPATIBILITY: Record<ZodiacSign, Partial<Record<ZodiacSign, number>>> = {
   Aries: { Leo: 95, Sagittarius: 93, Gemini: 88, Aquarius: 85, Libra: 80, Aries: 75, Scorpio: 50 },
   Taurus: { Virgo: 95, Capricorn: 93, Cancer: 90, Pisces: 88, Scorpio: 82, Taurus: 70, Libra: 65 },
@@ -44,23 +76,29 @@ const ZODIAC_COMPATIBILITY: Record<ZodiacSign, Partial<Record<ZodiacSign, number
   Pisces: { Cancer: 93, Scorpio: 93, Capricorn: 78, Taurus: 75, Virgo: 70, Pisces: 65, Leo: 50 },
 };
 
+/**
+ * Returns the zodiac sign for a date string in "YYYY-MM-DD" format.
+ * Parses the date string directly (no Date constructor) to avoid timezone shifts.
+ */
 export function getZodiacSign(dateString: string): ZodiacSign {
-  const date = new Date(dateString);
-  const month = date.getMonth() + 1; // 1-indexed
-  const day = date.getDate();
+  // Parse directly to avoid UTC vs local timezone off-by-one errors
+  const parts = dateString.split('-');
+  const month = parseInt(parts[1], 10); // 1-indexed
+  const day = parseInt(parts[2], 10);
 
-  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return 'Aries';
-  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return 'Taurus';
-  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return 'Gemini';
-  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return 'Cancer';
-  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return 'Leo';
-  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return 'Virgo';
-  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return 'Libra';
-  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return 'Scorpio';
-  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return 'Sagittarius';
-  if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return 'Capricorn';
-  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return 'Aquarius';
-  return 'Pisces';
+  // Standard western astrology boundaries (verified against tropical zodiac)
+  if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return 'Aries';       // Mar 21 – Apr 19
+  if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return 'Taurus';      // Apr 20 – May 20
+  if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return 'Gemini';      // May 21 – Jun 20
+  if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return 'Cancer';      // Jun 21 – Jul 22
+  if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return 'Leo';         // Jul 23 – Aug 22
+  if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return 'Virgo';       // Aug 23 – Sep 22
+  if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return 'Libra';      // Sep 23 – Oct 22
+  if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return 'Scorpio';   // Oct 23 – Nov 21
+  if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return 'Sagittarius'; // Nov 22 – Dec 21
+  if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return 'Capricorn';  // Dec 22 – Jan 19
+  if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return 'Aquarius';    // Jan 20 – Feb 18
+  return 'Pisces'; // Feb 19 – Mar 20
 }
 
 export function calculateLifePathNumber(birthdayString: string): number {
@@ -97,7 +135,6 @@ export function calculateCompatibility(
   // 2. Numerology Compatibility Score
   const lp1 = calculateLifePathNumber(p1.birthday);
   const lp2 = calculateLifePathNumber(p2.birthday);
-  // Max difference is 8 (between 1 and 9). Master numbers (11, 22, 33) are treated specially or reduced for simplicity.
   const absDiff = Math.abs((lp1 % 9 || 9) - (lp2 % 9 || 9));
   const numerologyScore = Math.max(100 - absDiff * 10, 50);
 
@@ -107,7 +144,6 @@ export function calculateCompatibility(
     if (p1.loveLanguage === p2.loveLanguage) {
       loveLanguageScore = 100;
     } else {
-      // Complementary matches
       const pairings = [p1.loveLanguage, p2.loveLanguage];
       if (pairings.includes('Words of Affirmation') && pairings.includes('Quality Time')) {
         loveLanguageScore = 90;
@@ -141,14 +177,19 @@ export function calculateCompatibility(
 
   // Generate Insights
   const insights: string[] = [];
+  const sym1 = ZODIAC_SYMBOLS[sign1];
+  const sym2 = ZODIAC_SYMBOLS[sign2];
+  const elem1 = ZODIAC_ELEMENTS[sign1];
+  const elem2 = ZODIAC_ELEMENTS[sign2];
+
   insights.push(`🌌 Your combined cosmic energy shines at a beautiful ${overall}% compatibility!`);
 
   if (zodiacScore >= 90) {
-    insights.push(`✨ ${sign1} and ${sign2} represent a highly harmonious zodiac alignment.`);
+    insights.push(`${sym1}${sym2} ${sign1} and ${sign2} represent a highly harmonious zodiac alignment.`);
   } else if (zodiacScore < 60) {
     insights.push(`⚡ ${sign1} and ${sign2} present dynamic contrasts that can spark creative tension and growth.`);
   } else {
-    insights.push(`💫 Your zodiac elements (${sign1} & ${sign2}) create a pleasant, supportive orbit.`);
+    insights.push(`💫 Your ${elem1} & ${elem2} elements (${sym1} ${sign1} & ${sym2} ${sign2}) create a pleasant, supportive orbit.`);
   }
 
   if (lp1 === lp2) {

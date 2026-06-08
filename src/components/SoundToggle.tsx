@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { audioSystem } from '@/lib/audio';
 
 export default function SoundToggle() {
-  const [muted, setMuted] = useState(false);
-
-  useEffect(() => {
-    setMuted(audioSystem.getMute());
-  }, []);
+  const [muted, setMuted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return audioSystem.getMute();
+    }
+    return false;
+  });
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();

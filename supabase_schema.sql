@@ -3,6 +3,10 @@
 -- Run this in the SQL Editor of your Supabase Project
 -- =======================================================
 
+-- MIGRATION NOTE FOR EXISTING PROJECTS:
+-- If you have already created the tables, run this command to update:
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
 -- 1. Create Couples table (referenced by profiles)
 CREATE TABLE IF NOT EXISTS couples (
   id TEXT PRIMARY KEY,
@@ -18,6 +22,7 @@ CREATE TABLE IF NOT EXISTS couples (
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
+  password_hash TEXT, -- Password verification
   name TEXT NOT NULL,
   nickname TEXT,
   gender TEXT NOT NULL CHECK (gender IN ('female', 'male', 'other')),
