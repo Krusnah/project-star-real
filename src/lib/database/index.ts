@@ -72,7 +72,7 @@ async function initializeCustomDatabase() {
   };
 
   // Perform database reset if not done before in this client instance
-  if (typeof window !== 'undefined' && !localStorage.getItem('ps_db_reset_v5')) {
+  if (typeof window !== 'undefined' && !localStorage.getItem('ps_db_reset_v7')) {
     console.log('🔄 Resetting data to start clean: day 1, streak 1, prompting for questions and periods...');
     
     // Clear localStorage values and log out current user
@@ -126,7 +126,7 @@ async function initializeCustomDatabase() {
       }
     }
 
-    localStorage.setItem('ps_db_reset_v5', 'true');
+    localStorage.setItem('ps_db_reset_v7', 'true');
   }
 
   if (supabase) {

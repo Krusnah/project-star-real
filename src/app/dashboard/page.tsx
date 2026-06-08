@@ -344,6 +344,15 @@ export default function DashboardPage() {
     { birthday: partnerData.birthday, loveLanguage: partnerData.love_language, interests: partnerData.interests, personality: partnerData.personality }
   );
 
+  const anshritStyle = currentUser.id === 'anshrit' ? compatResult.royalDetails?.style1 : compatResult.royalDetails?.style2;
+  const mahiStyle = currentUser.id === 'mahi' ? compatResult.royalDetails?.style1 : compatResult.royalDetails?.style2;
+
+  const anshritCastle = currentUser.id === 'anshrit' ? compatResult.royalDetails?.castle1 : compatResult.royalDetails?.castle2;
+  const mahiCastle = currentUser.id === 'mahi' ? compatResult.royalDetails?.castle1 : compatResult.royalDetails?.castle2;
+
+  const anshritIntimacy = currentUser.id === 'anshrit' ? compatResult.royalDetails?.intimacyLang1 : compatResult.royalDetails?.intimacyLang2;
+  const mahiIntimacy = currentUser.id === 'mahi' ? compatResult.royalDetails?.intimacyLang1 : compatResult.royalDetails?.intimacyLang2;
+
   // Calculate Her cycle information
   const cycleUser = currentUser.gender === 'female' ? currentUser : partner;
   let daysSinceLastPeriod = 12;
@@ -1218,8 +1227,8 @@ export default function DashboardPage() {
                       <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.styleScore}%</span>
                     </div>
                     <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
-                      Anshrit: <strong className="text-white">{compatResult.royalDetails.style1}</strong> <br />
-                      Mahi: <strong className="text-white">{compatResult.royalDetails.style2}</strong>
+                      Anshrit: <strong className="text-white">{anshritStyle}</strong> <br />
+                      Mahi: <strong className="text-white">{mahiStyle}</strong>
                     </p>
                   </GlassCard>
 
@@ -1231,8 +1240,8 @@ export default function DashboardPage() {
                       <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.castleScore}%</span>
                     </div>
                     <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
-                      Anshrit: <strong className="text-white">{compatResult.royalDetails.castle1}</strong> <br />
-                      Mahi: <strong className="text-white">{compatResult.royalDetails.castle2}</strong>
+                      Anshrit: <strong className="text-white">{anshritCastle}</strong> <br />
+                      Mahi: <strong className="text-white">{mahiCastle}</strong>
                     </p>
                   </GlassCard>
 
@@ -1244,8 +1253,8 @@ export default function DashboardPage() {
                       <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.intimacyLanguageScore}%</span>
                     </div>
                     <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
-                      Anshrit: <strong className="text-white">{compatResult.royalDetails.intimacyLang1}</strong> <br />
-                      Mahi: <strong className="text-white">{compatResult.royalDetails.intimacyLang2}</strong>
+                      Anshrit: <strong className="text-white">{anshritIntimacy}</strong> <br />
+                      Mahi: <strong className="text-white">{mahiIntimacy}</strong>
                     </p>
                   </GlassCard>
                 </div>

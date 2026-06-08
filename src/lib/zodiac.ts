@@ -287,7 +287,10 @@ export function calculateCompatibility(
   if (castle1 === castle2) {
     insights.push(`🏰 Magical Sanctuary: Both of you desire to construct your private domain in the enchanted "${castle1}"!`);
   } else {
-    insights.push(`🏰 Sanctuary Harmony: Anshrit prefers the ${castle1} while Mahi seeks refuge in the ${castle2}. You hold domains in both!`);
+    const isP1Anshrit = p1.birthday === '2004-10-19';
+    const anshritCastle = isP1Anshrit ? castle1 : castle2;
+    const mahiCastle = isP1Anshrit ? castle2 : castle1;
+    insights.push(`🏰 Sanctuary Harmony: Anshrit prefers the ${anshritCastle} while Mahi seeks refuge in the ${mahiCastle}. You hold domains in both!`);
   }
 
   if (style1 === style2) {
