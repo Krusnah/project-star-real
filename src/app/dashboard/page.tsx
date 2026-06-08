@@ -27,7 +27,7 @@ import CycleWheel from '@/components/CycleWheel';
 import ConstellationMatch from '@/components/ConstellationMatch';
 import FloatingHearts from '@/components/FloatingHearts';
 import EnchantedGiftAnimation from '@/components/EnchantedGiftAnimation';
-import { databaseApi, UserProfile, Couple, CycleLog, JournalEntry, Memory, BucketItem, DailyQuestion, DailyAnswer, VirtualGift } from '@/lib/database';
+import { databaseApi, UserProfile, Couple, CycleLog, JournalEntry, Memory, BucketItem, DailyQuestion, DailyAnswer, VirtualGift, getLocalDateString } from '@/lib/database';
 import { audioSystem } from '@/lib/audio';
 import { calculateCompatibility, getZodiacSign, ZODIAC_SYMBOLS, ZodiacSign } from '@/lib/zodiac';
 import { getDailyFortune, PHASE_PARTNER_TIPS } from '@/lib/fortunes';
@@ -348,13 +348,25 @@ export default function DashboardPage() {
   const cycleUser = currentUser.gender === 'female' ? currentUser : partner;
   let daysSinceLastPeriod = 12;
 
+  const parseDateUTC = (dateStr: string) => {
+    const parts = dateStr.split('-');
+    return Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  };
+
+  const getTodayUTC = () => {
+    const now = new Date(currentTime);
+    return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+
   if (cycleLogs.length > 0) {
     const lastP = cycleLogs.find(l => l.is_period);
     if (lastP) {
-      daysSinceLastPeriod = Math.floor((currentTime - new Date(lastP.date).getTime()) / 86400000) + 1;
+      const diff = getTodayUTC() - parseDateUTC(lastP.date);
+      daysSinceLastPeriod = Math.max(0, Math.floor(diff / 86400000)) + 1;
     }
   } else if (cycleUser?.last_period_date) {
-    daysSinceLastPeriod = Math.floor((currentTime - new Date(cycleUser.last_period_date).getTime()) / 86400000) + 1;
+    const diff = getTodayUTC() - parseDateUTC(cycleUser.last_period_date);
+    daysSinceLastPeriod = Math.max(0, Math.floor(diff / 86400000)) + 1;
   }
 
   const avgDuration = cycleUser?.average_period_duration || 5;
@@ -412,7 +424,7 @@ export default function DashboardPage() {
   const handleSaveLog = async (e: React.FormEvent) => {
     e.preventDefault();
     audioSystem.playClick();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const finalSymptoms = [...newLogSymptoms];
     if (newLogCustomSymptom.trim()) finalSymptoms.push(newLogCustomSymptom.trim());
     try {
@@ -446,7 +458,7 @@ export default function DashboardPage() {
     if (!newJournalTitle.trim() || !newJournalContent.trim() || !currentUser.couple_id) return;
     audioSystem.playClick();
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateString();
       await databaseApi.saveJournalEntry(
         currentUser.couple_id,
         currentUser.id,
@@ -471,7 +483,7 @@ export default function DashboardPage() {
     if (!newMemoryTitle.trim() || !currentUser.couple_id) return;
     audioSystem.playClick();
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateString();
       await databaseApi.saveMemory(
         currentUser.couple_id,
         newMemoryTitle.trim(),
@@ -543,7 +555,7 @@ export default function DashboardPage() {
       setIsRecording(false);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       audioSystem.playSuccess();
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateString();
       setMockVoiceNotes(prev => [{ id: `vn_${Math.random()}`, duration: recordingSeconds, date: todayStr }, ...prev]);
     } else {
       audioSystem.playClick();
@@ -615,7 +627,9 @@ export default function DashboardPage() {
   const myAnswer = dailyAnswers.find(a => a.user_id === currentUser.id);
   const partnerAnswer = dailyAnswers.find(a => a.user_id !== currentUser.id);
 
-  const relationshipStartDate = new Date('2026-03-06T00:00:00');
+  const anniversaryStr = couple?.anniversary_date || '2026-03-06';
+  const annParts = anniversaryStr.split('-');
+  const relationshipStartDate = new Date(parseInt(annParts[0], 10), parseInt(annParts[1], 10) - 1, parseInt(annParts[2], 10));
   const relationshipDiff = currentTime - relationshipStartDate.getTime();
   const relationshipDays = Math.max(1, Math.floor(relationshipDiff / (1000 * 60 * 60 * 24)) + 1);
 
@@ -1010,7 +1024,11 @@ export default function DashboardPage() {
                       <div className="flex justify-between items-start border-b border-cosmic-lavender/10 pb-3.5 mb-3.5">
                         <div>
                           <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                            {new Date(log.date).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+                            {(() => {
+                              const parts = log.date.split('-');
+                              const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                              return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                            })()}
                             {log.is_period && (
                               <span className="px-2 py-0.5 rounded-full bg-cosmic-pink/20 border border-cosmic-pink/20 text-[9px] text-cosmic-pink font-extrabold uppercase">
                                 Period
@@ -2055,7 +2073,7 @@ export default function DashboardPage() {
                             <span>Water</span>
                             <span className="font-bold text-white">{newLogWater}L</span>
                           </label>
-                          <input type="range" min="0" max="4" step="0.5" value={newLogWater} onChange={(e) => setNewLogWater(parseFloat(e.target.value))} className="w-full accent-cosmic-purple h-1 bg-cosmic-black rounded-lg" />
+                          <input type="range" min="0" max="4" step="1" value={newLogWater} onChange={(e) => setNewLogWater(parseInt(e.target.value))} className="w-full accent-cosmic-purple h-1 bg-cosmic-black rounded-lg" />
                         </div>
                       </div>
                     </div>

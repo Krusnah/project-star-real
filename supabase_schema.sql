@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS cycle_logs (
   symptoms_custom TEXT,
   energy_level INT,
   sleep_hours NUMERIC,
-  water_intake INT DEFAULT 0,
+  water_intake NUMERIC DEFAULT 0,
   notes TEXT,
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()),
   UNIQUE(user_id, date)

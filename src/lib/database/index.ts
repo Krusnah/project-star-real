@@ -22,13 +22,20 @@ async function hashPassword(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+export function getLocalDateString(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 async function initializeCustomDatabase() {
   const coupleId = 'anshrit-mahi';
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
 
   const seedCouple: Couple = {
     id: coupleId,
-    anniversary_date: '2026-03-06',
+    anniversary_date: today, // Start relationship as Day 1
     love_streak: 1,
     last_streak_update: today,
     partner_1_id: 'anshrit',
@@ -63,6 +70,64 @@ async function initializeCustomDatabase() {
     pms_duration: 7,
     created_at: new Date().toISOString(),
   };
+
+  // Perform database reset if not done before in this client instance
+  if (typeof window !== 'undefined' && !localStorage.getItem('ps_db_reset_v5')) {
+    console.log('🔄 Resetting data to start clean: day 1, streak 1, prompting for questions and periods...');
+    
+    // Clear localStorage values and log out current user
+    localStorage.removeItem('ps_current_user_id');
+    localStorage.removeItem('ps_current_user');
+    localStorage.removeItem('ps_questions');
+    localStorage.removeItem('ps_answers');
+    localStorage.removeItem('ps_gifts');
+    localStorage.removeItem('ps_journals');
+    localStorage.removeItem('ps_memories');
+    localStorage.removeItem('ps_buckets');
+    localStorage.removeItem('ps_cycle_logs');
+    localStorage.removeItem('ps_love_notes');
+    localStorage.removeItem('ps_seed_score');
+    
+    // Setup initial profiles in local storage without personality/love language/last period
+    localStorage.setItem('ps_profiles', JSON.stringify([seedAnshrit, seedMahi]));
+    localStorage.setItem('ps_couples', JSON.stringify([seedCouple]));
+
+    // Perform Supabase updates if connected
+    if (supabase) {
+      try {
+        // Clear related entries
+        await supabase.from('virtual_gifts').delete().eq('couple_id', coupleId);
+        await supabase.from('journal_entries').delete().eq('couple_id', coupleId);
+        await supabase.from('memories').delete().eq('couple_id', coupleId);
+        await supabase.from('bucket_items').delete().eq('couple_id', coupleId);
+        await supabase.from('daily_answers').delete().eq('couple_id', coupleId);
+        await supabase.from('cycle_logs').delete().in('user_id', ['anshrit', 'mahi']);
+        
+        // Reset profiles back to clean fields (nullifying love_language & personality)
+        await supabase.from('profiles').update({
+          personality: null,
+          love_language: null,
+          interests: null,
+          favorite_things: null,
+          last_period_date: null,
+          average_cycle_length: 28,
+          average_period_duration: 5,
+          pms_duration: 7
+        }).in('id', ['anshrit', 'mahi']);
+
+        // Reset couple streak and dates
+        await supabase.from('couples').update({
+          love_streak: 1,
+          last_streak_update: today,
+          anniversary_date: today
+        }).eq('id', coupleId);
+      } catch (err) {
+        console.error('Supabase reset failed:', err);
+      }
+    }
+
+    localStorage.setItem('ps_db_reset_v5', 'true');
+  }
 
   if (supabase) {
     try {
@@ -248,7 +313,7 @@ const seedDailyQuestions = () => {
     const seeded = list.map((item, idx) => {
       const d = new Date(today);
       d.setDate(today.getDate() + idx);
-      const dateString = d.toISOString().split('T')[0];
+      const dateString = getLocalDateString(d);
       return { ...item, date: dateString };
     });
     localStorage.setItem(questionsKey, JSON.stringify(seeded));
@@ -344,7 +409,7 @@ class LocalDatabase {
       partner_1_id: user1Id,
       partner_2_id: '',
       love_streak: 1,
-      last_streak_update: new Date().toISOString().split('T')[0],
+      last_streak_update: getLocalDateString(),
       created_at: new Date().toISOString()
     };
     couples.push(newCouple);
@@ -389,6 +454,9 @@ class LocalDatabase {
   }
 
   async saveCycleLog(userId: string, date: string, data: Partial<CycleLog>): Promise<CycleLog> {
+    if (data.water_intake !== undefined) {
+      data.water_intake = Math.round(data.water_intake);
+    }
     const logs = getStorageItem<CycleLog[]>('ps_cycle_logs', []);
     const existingIdx = logs.findIndex(log => log.user_id === userId && log.date === date);
 
@@ -503,7 +571,7 @@ class LocalDatabase {
   // Daily Questions
   async getDailyQuestion(): Promise<DailyQuestion> {
     const questions = getStorageItem<DailyQuestion[]>('ps_questions', []);
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     const question = questions.find(q => q.date === today);
     return question || questions[0] || { id: 'q1', question: 'What is your favorite memory of us?', date: today };
   }
@@ -570,7 +638,7 @@ class LocalDatabase {
     const couple = await this.getCouple(coupleId);
     if (!couple) return null;
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString();
     if (couple.last_streak_update !== today) {
       couple.love_streak += 1;
       couple.last_streak_update = today;
@@ -698,7 +766,7 @@ export const databaseApi = {
         partner_1_id: userId,
         partner_2_id: '',
         love_streak: 1,
-        last_streak_update: new Date().toISOString().split('T')[0],
+        last_streak_update: getLocalDateString(),
         created_at: new Date().toISOString()
       };
       const { error: coupleErr } = await supabase.from('couples').insert([newCouple]);
@@ -779,6 +847,9 @@ export const databaseApi = {
   },
 
   async saveCycleLog(userId: string, date: string, data: Partial<CycleLog>): Promise<CycleLog> {
+    if (data.water_intake !== undefined) {
+      data.water_intake = Math.round(data.water_intake);
+    }
     if (supabase) {
       const { data: existing, error: findErr } = await supabase
         .from('cycle_logs')
@@ -962,7 +1033,7 @@ export const databaseApi = {
   // Daily Questions
   async getDailyQuestion(): Promise<DailyQuestion> {
     if (supabase) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const { data: question, error } = await supabase
         .from('daily_questions')
         .select('*')
@@ -1082,7 +1153,7 @@ export const databaseApi = {
         .eq('id', coupleId)
         .maybeSingle();
       if (fErr || !couple) return null;
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       if (couple.last_streak_update !== today) {
         const updated = {
           ...couple,
@@ -1145,7 +1216,7 @@ export const databaseApi = {
 
   async saveLoveNote(coupleId: string, authorId: string, content: string): Promise<void> {
     const noteId = `love-note-${coupleId}`;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     if (supabase) {
       const { data: existing } = await supabase
         .from('journal_entries')

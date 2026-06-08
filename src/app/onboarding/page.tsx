@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Heart, ChevronRight, ChevronLeft, Moon } from 'lucide-react';
 import StarryBackground from '@/components/StarryBackground';
 import GlassCard from '@/components/GlassCard';
-import { databaseApi, UserProfile } from '@/lib/database';
+import { databaseApi, UserProfile, getLocalDateString } from '@/lib/database';
 import { audioSystem } from '@/lib/audio';
 
 const LOVE_LANGUAGES = [
@@ -97,7 +97,7 @@ export default function OnboardingPage() {
     audioSystem.playClick();
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(d);
     setLastPeriodDate(dateStr);
   };
 
