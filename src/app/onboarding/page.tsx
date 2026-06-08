@@ -41,6 +41,16 @@ const SYMPTOMS_LIST = [
   'Sleep Disruption'
 ];
 
+const FAVORITE_SUGGESTIONS = [
+  'Dark Chocolate 🍫',
+  'Vanilla Latte ☕',
+  'Cozy Movies 🍿',
+  'Red Roses 🌹',
+  'Stargazing Dates 🌌',
+  'Warm Hugs 🫂',
+  'Cute Love Letters 💌'
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -56,6 +66,11 @@ export default function OnboardingPage() {
   const [loveLanguage, setLoveLanguage] = useState(LOVE_LANGUAGES[0]);
   const [customLoveLanguage, setCustomLoveLanguage] = useState('');
 
+  // Royal Preferences states
+  const [intimacyStyle, setIntimacyStyle] = useState('Romantic');
+  const [intimacyLanguage, setIntimacyLanguage] = useState('Physical affection');
+  const [castlePreference, setCastlePreference] = useState('Royal Castle');
+
   // Period states (for Mahi Saran / tracker users)
   const [trackPeriod, setTrackPeriod] = useState(true);
   const [lastPeriodDate, setLastPeriodDate] = useState('');
@@ -66,8 +81,28 @@ export default function OnboardingPage() {
   const [customSymptom, setCustomSymptom] = useState('');
   const [pmsInfo, setPmsInfo] = useState('Moderate');
 
-  // Total steps: Step 1 (Vibe) + Step 2 (Hobbies) + optional Step 3 (Cycle)
-  const totalSteps = trackPeriod ? 3 : 2;
+  // Helper to append favorite suggestions
+  const handleAddFavoriteSuggestion = (sug: string) => {
+    audioSystem.playClick();
+    setFavoriteThings(prev => {
+      const trimmed = prev.trim();
+      if (!trimmed) return sug;
+      if (trimmed.endsWith(',')) return `${prev} ${sug}`;
+      return `${prev}, ${sug}`;
+    });
+  };
+
+  // Helper for fast date selection
+  const setDateHelper = (daysAgo: number) => {
+    audioSystem.playClick();
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const dateStr = d.toISOString().split('T')[0];
+    setLastPeriodDate(dateStr);
+  };
+
+  // Total steps: Step 1 (Vibe) + Step 2 (Royal Prefs) + Step 3 (Hobbies) + optional Step 4 (Cycle)
+  const totalSteps = trackPeriod ? 4 : 3;
 
   useEffect(() => {
     databaseApi.getCurrentUser().then((profile) => {
@@ -80,20 +115,37 @@ export default function OnboardingPage() {
         }
         // Pre-fill values if available
         if (profile.personality) {
-          if (['Creative', 'Analytical', 'Adventurous', 'Introverted', 'Extroverted', 'Empathic'].includes(profile.personality)) {
-            setPersonality(profile.personality);
+          const parts = profile.personality.split(' | ');
+          const corePersonality = parts[0];
+          if (['Creative', 'Analytical', 'Adventurous', 'Introverted', 'Extroverted', 'Empathic'].includes(corePersonality)) {
+            setPersonality(corePersonality);
           } else {
             setPersonality('Other');
-            setCustomPersonality(profile.personality);
+            setCustomPersonality(corePersonality);
           }
+          parts.forEach(part => {
+            if (part.startsWith('Style: ')) {
+              setIntimacyStyle(part.replace('Style: ', ''));
+            }
+            if (part.startsWith('Castle: ')) {
+              setCastlePreference(part.replace('Castle: ', ''));
+            }
+          });
         }
         if (profile.love_language) {
-          if (LOVE_LANGUAGES.includes(profile.love_language)) {
-            setLoveLanguage(profile.love_language);
+          const parts = profile.love_language.split(' | ');
+          const coreLoveLang = parts[0];
+          if (LOVE_LANGUAGES.includes(coreLoveLang)) {
+            setLoveLanguage(coreLoveLang);
           } else {
             setLoveLanguage('Other');
-            setCustomLoveLanguage(profile.love_language);
+            setCustomLoveLanguage(coreLoveLang);
           }
+          parts.forEach(part => {
+            if (part.startsWith('Intimacy: ')) {
+              setIntimacyLanguage(part.replace('Intimacy: ', ''));
+            }
+          });
         }
         if (profile.interests) {
           setSelectedInterests(profile.interests.filter(i => INTERESTS.includes(i)));
@@ -146,8 +198,8 @@ export default function OnboardingPage() {
     setLoading(true);
     audioSystem.playClick();
     try {
-      const finalPersonality = personality === 'Other' ? customPersonality : personality;
-      const finalLoveLanguage = loveLanguage === 'Other' ? customLoveLanguage : loveLanguage;
+      const finalPersonality = `${personality === 'Other' ? customPersonality : personality} | Style: ${intimacyStyle} | Castle: ${castlePreference}`;
+      const finalLoveLanguage = `${loveLanguage === 'Other' ? customLoveLanguage : loveLanguage} | Intimacy: ${intimacyLanguage}`;
 
       const allInterests = [...selectedInterests];
       if (customInterest.trim()) {
@@ -313,10 +365,103 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* STEP 2: Hobbies & Passions & Favorite Things */}
+          {/* STEP 2: Royal Preferences & Intimacy Quest */}
           {step === 2 && (
             <motion.div
-              key="step2"
+              key="step2-royal"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <GlassCard>
+                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-cosmic-pink animate-pulse" />
+                  Royal Court Preferences
+                </h2>
+                <p className="text-xs text-cosmic-lavender/70 mb-5">
+                  Determine your royal alignment and intimacy languages in the Kingdom Alliance.
+                </p>
+
+                <div className="space-y-5">
+                  {/* Intimacy Style */}
+                  <div>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">INTIMACY / PREFERENCE STYLE</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Romantic', 'Playful', 'Sensual', 'Adventurous'].map((style) => (
+                        <button
+                          key={style}
+                          type="button"
+                          onClick={() => { setIntimacyStyle(style); audioSystem.playClick(); }}
+                          className={`px-3 py-2 rounded-xl text-left text-xs font-medium border transition-all duration-200 cursor-pointer ${
+                            intimacyStyle === style
+                              ? 'bg-cosmic-purple/40 border-cosmic-lavender text-white'
+                              : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/30'
+                          }`}
+                        >
+                          {style === 'Romantic' ? 'Romantic ❤️' : style === 'Playful' ? 'Playful 🧸' : style === 'Sensual' ? 'Sensual 🔥' : 'Adventurous 🌟'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Intimacy Language */}
+                  <div>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">INTIMACY LANGUAGE</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Physical affection', 'Quality Time', 'Gifts & Gestures', 'Acts of service'].map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => { setIntimacyLanguage(lang); audioSystem.playClick(); }}
+                          className={`px-3 py-2 rounded-xl text-left text-xs font-medium border transition-all duration-200 cursor-pointer ${
+                            intimacyLanguage === lang
+                              ? 'bg-cosmic-purple/40 border-cosmic-lavender text-white'
+                              : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/30'
+                          }`}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Castle Sanctuary */}
+                  <div>
+                    <label className="block text-xs font-semibold text-cosmic-lavender/80 mb-1.5">MAGICAL SANCTUARY PREFERENCE</label>
+                    <select
+                      value={castlePreference}
+                      onChange={(e) => setCastlePreference(e.target.value)}
+                      className="w-full glass-input text-sm appearance-none cursor-pointer"
+                    >
+                      <option value="Forest Cottage" className="bg-cosmic-black">Forest Cottage 🌿 (Cozy & Quiet)</option>
+                      <option value="Royal Castle" className="bg-cosmic-black">Royal Castle 🏰 (Grand & Traditional)</option>
+                      <option value="Ocean Tower" className="bg-cosmic-black">Ocean Tower 🌊 (Dreamy & Scenic)</option>
+                    </select>
+                  </div>
+
+                  <div className="pt-2 flex justify-between">
+                    <button
+                      onClick={prevStep}
+                      className="px-4 py-2.5 rounded-xl border border-cosmic-lavender/10 text-cosmic-lavender hover:bg-cosmic-lavender/10 text-xs font-bold tracking-wider flex items-center gap-1 transition-all duration-200 cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> BACK
+                    </button>
+                    <button
+                      onClick={nextStep}
+                      className="px-6 py-2.5 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/20 text-white text-xs font-bold tracking-wider flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                    >
+                      CONTINUE <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+
+          {/* STEP 3: Hobbies & Passions & Favorite Things */}
+          {step === 3 && (
+            <motion.div
+              key="step3"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -342,7 +487,7 @@ export default function OnboardingPage() {
                             key={interest}
                             type="button"
                             onClick={() => { handleInterestToggle(interest); audioSystem.playClick(); }}
-                            className={`px-3 py-1.5 rounded-full text-xs transition-all duration-200 ${
+                            className={`px-3 py-1.5 rounded-full text-xs transition-all duration-200 cursor-pointer ${
                               isSelected
                                 ? 'bg-cosmic-pink/20 border border-cosmic-pink text-white font-medium shadow-glow shadow-cosmic-pink/20'
                                 : 'bg-cosmic-black/60 border border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/25'
@@ -372,6 +517,18 @@ export default function OnboardingPage() {
                       rows={3}
                       className="w-full glass-input text-sm resize-none focus:border-cosmic-pink"
                     />
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {FAVORITE_SUGGESTIONS.map(sug => (
+                        <button
+                          key={sug}
+                          type="button"
+                          onClick={() => handleAddFavoriteSuggestion(sug)}
+                          className="px-2 py-1 rounded-lg bg-cosmic-purple/30 border border-cosmic-lavender/10 hover:border-cosmic-pink/40 text-[10px] text-cosmic-lavender cursor-pointer"
+                        >
+                          + {sug}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -403,10 +560,10 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* STEP 3: Her Cycle Tracking Profile (Mahi Saran Only) */}
-          {step === 3 && trackPeriod && (
+          {/* STEP 4: Her Cycle Tracking Profile (Mahi Saran Only) */}
+          {step === 4 && trackPeriod && (
             <motion.div
-              key="step3"
+              key="step4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -430,6 +587,29 @@ export default function OnboardingPage() {
                       className="w-full glass-input text-sm cursor-pointer focus:border-cosmic-pink"
                       required
                     />
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setDateHelper(0)}
+                        className="px-2.5 py-1 rounded-lg bg-cosmic-purple/30 border border-cosmic-lavender/10 hover:border-cosmic-pink/40 text-[10px] text-cosmic-lavender cursor-pointer"
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDateHelper(3)}
+                        className="px-2.5 py-1 rounded-lg bg-cosmic-purple/30 border border-cosmic-lavender/10 hover:border-cosmic-pink/40 text-[10px] text-cosmic-lavender cursor-pointer"
+                      >
+                        3 Days Ago
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDateHelper(7)}
+                        className="px-2.5 py-1 rounded-lg bg-cosmic-purple/30 border border-cosmic-lavender/10 hover:border-cosmic-pink/40 text-[10px] text-cosmic-lavender cursor-pointer"
+                      >
+                        1 Week Ago
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -492,7 +672,7 @@ export default function OnboardingPage() {
                             key={symptom}
                             type="button"
                             onClick={() => { handleSymptomToggle(symptom); audioSystem.playClick(); }}
-                            className={`px-3 py-2 rounded-lg text-left text-xs transition-all duration-200 border ${
+                            className={`px-3 py-2 rounded-lg text-left text-xs transition-all duration-200 border cursor-pointer ${
                               isSelected
                                 ? 'bg-cosmic-pink/20 border-cosmic-pink text-white font-medium'
                                 : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/25'
@@ -521,7 +701,7 @@ export default function OnboardingPage() {
                           key={pms}
                           type="button"
                           onClick={() => { setPmsInfo(pms); audioSystem.playClick(); }}
-                          className={`py-2 rounded-lg text-center text-xs font-medium border transition-all duration-200 ${
+                          className={`py-2 rounded-lg text-center text-xs font-medium border transition-all duration-200 cursor-pointer ${
                             pmsInfo === pms
                               ? 'bg-cosmic-purple/40 border-cosmic-lavender text-white'
                               : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/30'

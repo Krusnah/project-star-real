@@ -86,17 +86,17 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-4xl font-extrabold tracking-tight text-white font-display"
+            className="text-4xl font-extrabold tracking-tight text-white font-display text-center"
           >
-            Anshrit <span className="text-cosmic-pink animate-pulse">❤️</span> Mahi
+            Knight Anshrit <span className="text-cosmic-pink animate-pulse">❤️</span> Princess Mahi
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="text-xs text-cosmic-lavender/70 tracking-widest uppercase mt-2"
+            className="text-xs text-cosmic-lavender/70 tracking-widest uppercase mt-2 text-center"
           >
-            Our Private Cosmic Space & Sync
+            Our Private Royal Court & Sync
           </motion.p>
 
           <div className="flex justify-center gap-4 mt-3">
@@ -124,8 +124,8 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
             >
               <GlassCard>
                 <div className="text-center mb-6">
-                  <h2 className="text-lg font-bold text-white mb-1">Who is entering orbit? 🚀</h2>
-                  <p className="text-xs text-cosmic-lavender/70">Select your profile to load space details</p>
+                  <h2 className="text-lg font-bold text-white mb-1">Who enters the Royal Court? 🏰</h2>
+                  <p className="text-xs text-cosmic-lavender/70">Select your royal seal to unlock space details</p>
                 </div>
 
                 <div className="space-y-4">
@@ -137,11 +137,11 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
                     className="w-full p-4 rounded-2xl bg-gradient-to-r from-cosmic-purple/20 to-cosmic-violet/30 hover:to-cosmic-pink/20 border border-cosmic-lavender/10 hover:border-cosmic-lavender/25 text-left flex items-center gap-4 transition-all"
                   >
                     <div className="w-14 h-14 rounded-full bg-cosmic-purple/30 border border-cosmic-lavender/20 flex items-center justify-center text-3xl shadow-md">
-                      👨
+                      🛡️
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-extrabold text-white">Anshrit Singh</h3>
-                      <p className="text-[10px] text-cosmic-lavender/60 tracking-wider uppercase mt-0.5">Birthday: Oct 19 · Libra ♎</p>
+                      <h3 className="text-base font-extrabold text-white">Knight Anshrit</h3>
+                      <p className="text-[10px] text-cosmic-lavender/60 tracking-wider uppercase mt-0.5">Birthday: Oct 19 · Libra ♎ · Defender</p>
                     </div>
                     <ChevronRight className="w-5 h-5 text-cosmic-lavender/50" />
                   </motion.button>
@@ -154,11 +154,11 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
                     className="w-full p-4 rounded-2xl bg-gradient-to-r from-cosmic-pink/15 to-cosmic-purple/20 hover:to-cosmic-pink/30 border border-cosmic-pink/10 hover:border-cosmic-pink/25 text-left flex items-center gap-4 transition-all"
                   >
                     <div className="w-14 h-14 rounded-full bg-cosmic-pink/30 border border-cosmic-pink/20 flex items-center justify-center text-3xl shadow-md">
-                      👩
+                      👑
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-extrabold text-white">Mahi Saran</h3>
-                      <p className="text-[10px] text-cosmic-pink/60 tracking-wider uppercase mt-0.5">Birthday: Dec 16 · Sagittarius ♐</p>
+                      <h3 className="text-base font-extrabold text-white">Princess Mahi</h3>
+                      <p className="text-[10px] text-cosmic-pink/60 tracking-wider uppercase mt-0.5">Birthday: Dec 16 · Sagittarius ♐ · Royalty</p>
                     </div>
                     <ChevronRight className="w-5 h-5 text-cosmic-pink/50" />
                   </motion.button>
@@ -175,10 +175,10 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
             >
               <GlassCard>
                 <div className="text-center mb-6">
-                  <div className="text-4xl mb-3">🔑</div>
-                  <h2 className="text-lg font-bold text-white mb-1">Enter Secret Passcode</h2>
+                  <div className="text-4xl mb-3">🗝️</div>
+                  <h2 className="text-lg font-bold text-white mb-1">Enter Secret Castle Key</h2>
                   <p className="text-xs text-cosmic-lavender/70">
-                    Prove you&apos;re {selectedProfile === 'anshrit' ? 'Anshrit' : 'Mahi'} by entering our date 💖
+                    Prove you&apos;re {selectedProfile === 'anshrit' ? 'Knight Anshrit' : 'Princess Mahi'} by entering our anniversary date 💖
                   </p>
                 </div>
 
@@ -191,7 +191,7 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
 
                   <div>
                     <label className="block text-[10px] font-bold tracking-widest text-cosmic-lavender/50 uppercase mb-1.5 text-center">
-                      4-DIGIT ANNIVERSARY CODE (DDMM)
+                      4-DIGIT CASTLE KEY (DDMM)
                     </label>
                     <input
                       type="password"
@@ -221,7 +221,7 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
                       {loading ? (
                         <span className="w-5 h-5 border-2 border-cosmic-black border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <>ENTER SPACE ✨</>
+                        <>ENTER KINGDOM 🏰</>
                       )}
                     </button>
                   </div>
@@ -247,9 +247,9 @@ import { audioSystem } from '@/lib/audio';export default function LandingPage() 
               transition={{ type: 'spring', stiffness: 150 }}
               className="text-center"
             >
-              <div className="text-7xl mb-4">✨🚀💖</div>
-              <h2 className="text-3xl font-extrabold text-white text-glow font-display mb-2">Entering Orbit!</h2>
-              <p className="text-sm text-cosmic-lavender/80">Welcome to our cosmic connection portal, {selectedProfile === 'anshrit' ? 'Anshrit' : 'Mahi'}...</p>
+              <div className="text-7xl mb-4">🏰🛡️👑</div>
+              <h2 className="text-3xl font-extrabold text-white text-glow font-display mb-2">Entering Kingdom!</h2>
+              <p className="text-sm text-cosmic-lavender/80">Welcome to our enchanted court, {selectedProfile === 'anshrit' ? 'Knight Anshrit' : 'Princess Mahi'}...</p>
             </motion.div>
           </motion.div>
         )}

@@ -27,6 +27,17 @@ export interface CompatibilityResult {
   loveLanguageScore: number;
   interestsScore: number;
   insights: string[];
+  royalDetails?: {
+    styleScore: number;
+    style1: string;
+    style2: string;
+    castleScore: number;
+    castle1: string;
+    castle2: string;
+    intimacyLanguageScore: number;
+    intimacyLang1: string;
+    intimacyLang2: string;
+  };
 }
 
 // Unicode symbols for each zodiac sign
@@ -120,11 +131,49 @@ export function calculateLifePathNumber(birthdayString: string): number {
 }
 
 export function calculateCompatibility(
-  p1: { birthday: string; loveLanguage?: string; interests?: string[] },
-  p2: { birthday: string; loveLanguage?: string; interests?: string[] }
+  p1: { birthday: string; loveLanguage?: string; interests?: string[]; personality?: string },
+  p2: { birthday: string; loveLanguage?: string; interests?: string[]; personality?: string }
 ): CompatibilityResult {
   const sign1 = getZodiacSign(p1.birthday);
   const sign2 = getZodiacSign(p2.birthday);
+
+  // Parse serialized Royal Preferences if present
+  let style1 = 'Romantic', style2 = 'Romantic';
+  let castle1 = 'Royal Castle', castle2 = 'Royal Castle';
+  let intimacyLang1 = 'Physical affection', intimacyLang2 = 'Physical affection';
+
+  if (p1.personality) {
+    const parts = p1.personality.split(' | ');
+    parts.forEach(part => {
+      if (part.startsWith('Style: ')) style1 = part.replace('Style: ', '');
+      if (part.startsWith('Castle: ')) castle1 = part.replace('Castle: ', '');
+    });
+  }
+  if (p2.personality) {
+    const parts = p2.personality.split(' | ');
+    parts.forEach(part => {
+      if (part.startsWith('Style: ')) style2 = part.replace('Style: ', '');
+      if (part.startsWith('Castle: ')) castle2 = part.replace('Castle: ', '');
+    });
+  }
+
+  // Parse love language to extract intimacy language if present
+  let baseLoveLanguage1 = p1.loveLanguage || '';
+  let baseLoveLanguage2 = p2.loveLanguage || '';
+  if (p1.loveLanguage) {
+    const parts = p1.loveLanguage.split(' | ');
+    baseLoveLanguage1 = parts[0];
+    parts.forEach(part => {
+      if (part.startsWith('Intimacy: ')) intimacyLang1 = part.replace('Intimacy: ', '');
+    });
+  }
+  if (p2.loveLanguage) {
+    const parts = p2.loveLanguage.split(' | ');
+    baseLoveLanguage2 = parts[0];
+    parts.forEach(part => {
+      if (part.startsWith('Intimacy: ')) intimacyLang2 = part.replace('Intimacy: ', '');
+    });
+  }
 
   // 1. Zodiac Compatibility Score
   const zodiacScore =
@@ -140,11 +189,11 @@ export function calculateCompatibility(
 
   // 3. Love Languages Compatibility
   let loveLanguageScore = 75; // baseline
-  if (p1.loveLanguage && p2.loveLanguage) {
-    if (p1.loveLanguage === p2.loveLanguage) {
+  if (baseLoveLanguage1 && baseLoveLanguage2) {
+    if (baseLoveLanguage1 === baseLoveLanguage2) {
       loveLanguageScore = 100;
     } else {
-      const pairings = [p1.loveLanguage, p2.loveLanguage];
+      const pairings = [baseLoveLanguage1, baseLoveLanguage2];
       if (pairings.includes('Words of Affirmation') && pairings.includes('Quality Time')) {
         loveLanguageScore = 90;
       } else if (pairings.includes('Physical Touch') && pairings.includes('Quality Time')) {
@@ -167,12 +216,38 @@ export function calculateCompatibility(
     }
   }
 
-  // Overall Score Calculation
+  // Royal Intimacy Styles alignment score
+  let styleScore = 75;
+  if (style1 === style2) {
+    styleScore = 100;
+  } else {
+    const styles = [style1, style2];
+    if (styles.includes('Romantic') && styles.includes('Sensual')) {
+      styleScore = 92;
+    } else if (styles.includes('Playful') && styles.includes('Adventurous')) {
+      styleScore = 95;
+    } else if (styles.includes('Romantic') && styles.includes('Playful')) {
+      styleScore = 88;
+    } else if (styles.includes('Sensual') && styles.includes('Adventurous')) {
+      styleScore = 85;
+    }
+  }
+
+  // Sanctuary Castle Alignment
+  const castleScore = castle1 === castle2 ? 100 : 70;
+
+  // Intimacy Language alignment
+  const intimacyLanguageScore = intimacyLang1 === intimacyLang2 ? 100 : 80;
+
+  // Overall Score Calculation (Weighted blend incorporating intimacy features)
   const overall = Math.round(
-    zodiacScore * 0.35 +
-    numerologyScore * 0.35 +
+    zodiacScore * 0.25 +
+    numerologyScore * 0.25 +
     loveLanguageScore * 0.15 +
-    interestsScore * 0.15
+    interestsScore * 0.15 +
+    styleScore * 0.10 +
+    castleScore * 0.05 +
+    intimacyLanguageScore * 0.05
   );
 
   // Generate Insights
@@ -182,7 +257,7 @@ export function calculateCompatibility(
   const elem1 = ZODIAC_ELEMENTS[sign1];
   const elem2 = ZODIAC_ELEMENTS[sign2];
 
-  insights.push(`🌌 Your combined cosmic energy shines at a beautiful ${overall}% compatibility!`);
+  insights.push(`👑 Royal Alliance Compatibility: Your combined connection is sealed at a beautiful ${overall}% alignment!`);
 
   if (zodiacScore >= 90) {
     insights.push(`${sym1}${sym2} ${sign1} and ${sign2} represent a highly harmonious zodiac alignment.`);
@@ -200,12 +275,29 @@ export function calculateCompatibility(
     insights.push(`🔑 Your life paths (${lp1} and ${lp2}) call for balancing different perspectives and life lessons.`);
   }
 
-  if (p1.loveLanguage && p2.loveLanguage) {
-    if (p1.loveLanguage === p2.loveLanguage) {
-      insights.push(`💖 Double connection! You both speak the language of "${p1.loveLanguage}".`);
+  if (baseLoveLanguage1 && baseLoveLanguage2) {
+    if (baseLoveLanguage1 === baseLoveLanguage2) {
+      insights.push(`💖 Double connection! You both speak the language of "${baseLoveLanguage1}".`);
     } else {
-      insights.push(`💝 Blending "${p1.loveLanguage}" and "${p2.loveLanguage}" creates a multi-dimensional expression of affection.`);
+      insights.push(`💝 Blending "${baseLoveLanguage1}" and "${baseLoveLanguage2}" creates a multi-dimensional expression of affection.`);
     }
+  }
+
+  // Intimacy Preference insights
+  if (castle1 === castle2) {
+    insights.push(`🏰 Magical Sanctuary: Both of you desire to construct your private domain in the enchanted "${castle1}"!`);
+  } else {
+    insights.push(`🏰 Sanctuary Harmony: Anshrit prefers the ${castle1} while Mahi seeks refuge in the ${castle2}. You hold domains in both!`);
+  }
+
+  if (style1 === style2) {
+    insights.push(`❤️ Preference Sync: Both of you share a matching "${style1}" style, ensuring complete court harmony.`);
+  } else {
+    insights.push(`💖 Preference Balance: Your chemistry blends ${style1} and ${style2} dynamics beautifully.`);
+  }
+
+  if (intimacyLang1 === intimacyLang2) {
+    insights.push(`✨ Intimacy Sync: You share the intimacy language of "${intimacyLang1}", making emotional connection deep and natural.`);
   }
 
   const sharedInterests = i1.filter((val) => i2.includes(val));
@@ -220,5 +312,16 @@ export function calculateCompatibility(
     loveLanguageScore,
     interestsScore,
     insights,
+    royalDetails: {
+      styleScore,
+      style1,
+      style2,
+      castleScore,
+      castle1,
+      castle2,
+      intimacyLanguageScore,
+      intimacyLang1,
+      intimacyLang2,
+    },
   };
 }

@@ -26,6 +26,7 @@ import SoundToggle from '@/components/SoundToggle';
 import CycleWheel from '@/components/CycleWheel';
 import ConstellationMatch from '@/components/ConstellationMatch';
 import FloatingHearts from '@/components/FloatingHearts';
+import EnchantedGiftAnimation from '@/components/EnchantedGiftAnimation';
 import { databaseApi, UserProfile, Couple, CycleLog, JournalEntry, Memory, BucketItem, DailyQuestion, DailyAnswer, VirtualGift } from '@/lib/database';
 import { audioSystem } from '@/lib/audio';
 import { calculateCompatibility, getZodiacSign, ZODIAC_SYMBOLS, ZodiacSign } from '@/lib/zodiac';
@@ -37,6 +38,81 @@ type Tab = 'home' | 'wellness' | 'match' | 'memories' | 'more';
 const SYMPTOMS_LIST = [
   'Cramps', 'Bloating', 'Headaches', 'Fatigue / Tiredness',
   'Mood Swings', 'Acne / Breakouts', 'Cravings', 'Sleep Disruption'
+];
+
+const COURT_DATES = [
+  "Stargazing at the Ocean Tower 🌌🌊",
+  "Feast in the Banqueting Hall 🍖🍷",
+  "Moonlight Waltz in the Royal Gardens 💃🌹",
+  "Archery Contest in the Outer Courtyard 🏹🎯",
+  "Secret Picnic in the Whispering Woods 🧺🌳",
+  "Horseback Ride to the Sunken Ruins 🐎🏰",
+  "Roasting Marshmallows over Dragon Fire 🐉🔥",
+  "Afternoon Tea in the Glass Conservatory 🫖🌸"
+];
+
+const WYR_QUESTIONS = [
+  {
+    q: "Would you rather spend a cozy evening in the Forest Cottage 🌿 or attend a Grand Gala at the Royal Castle 🏰?",
+    opts: ["Cozy Forest Cottage 🌿", "Grand Gala at Castle 🏰"]
+  },
+  {
+    q: "Would you rather receive written Royal Love Letters ✉️ or physical flowers and sweet treats 🌹🍫?",
+    opts: ["Royal Love Letters ✉️", "Flowers & Treats 🌹🍫"]
+  },
+  {
+    q: "Would you rather protect the kingdom as a Valiant Knight 🛡️ or rule the lands as a wise Princess 👑?",
+    opts: ["Valiant Knight 🛡️", "Wise Princess 👑"]
+  },
+  {
+    q: "Would you rather explore the secret enchanted caves 🧗‍♂️ or sail across the starry ocean ⛵✨?",
+    opts: ["Enchanted Caves 🧗‍♂️", "Starry Ocean ⛵✨"]
+  },
+  {
+    q: "Would you rather share a magical potion that grants flight 🦅 or one that makes you invisible 🫥?",
+    opts: ["Grant Flight 🦅", "Make Invisible 🫥"]
+  }
+];
+
+const PRESET_COMPLIMENTS = [
+  "Princess Mahi, your smile makes the entire kingdom shine! ✨👑",
+  "Knight Anshrit, your bravery and warmth protect our love! 🛡️❤️",
+  "The stars aligned when the Knight met his Princess. 🌌",
+  "Your laugh is more melodic than the finest harp in the castle. 🎶",
+  "No dragon in the realm could stand against the strength of our bond. 🐉",
+  "Your eyes are brighter than the stardust rain over the tower. 🌠"
+];
+
+const NOTE_SUGGESTIONS = [
+  "Need chocolate & cuddles 🍫🫂",
+  "Thinking of you, my love ❤️",
+  "Walk in the royal gardens soon? 🌹",
+  "My shield is yours, forever 🛡️",
+  "You make the castle shine ✨"
+];
+
+const ANSWER_SUGGESTIONS = [
+  "Snuggling under fuzzy blankets 🧸",
+  "Cooking a delicious castle feast 🍗",
+  "Watching sunset at the Ocean Tower 🌅",
+  "Just being by your side 🤍",
+  "Eating sweet chocolates together 🍫"
+];
+
+const MOOD_SUGGESTIONS = [
+  "Happy & Energetic 😄",
+  "A bit tired 🥱",
+  "Cozy & Loving 🥰",
+  "Low energy / resting 🛌",
+  "Slightly cranky 🦁"
+];
+
+const WELLNESS_SUGGESTIONS = [
+  "Need chocolate & cuddles 🍫🫂",
+  "Resting with warm tea 🍵",
+  "Hot water bag is my friend 🌡️",
+  "Walked in the castle gardens 🌹",
+  "Ready for movie night! 🍿"
 ];
 
 const INITIAL_VOICE_NOTES = [
@@ -104,6 +180,30 @@ export default function DashboardPage() {
   const [giftMsg, setGiftMsg] = useState('');
   const [selectedGiftType, setSelectedGiftType] = useState('hug');
 
+  // Enchanted Gift Animation Overlay state
+  const [activeGiftAnimation, setActiveGiftAnimation] = useState<{
+    type: 'kiss' | 'flower' | 'hug' | 'star';
+    senderName: string;
+    receiverName: string;
+    message?: string;
+  } | null>(null);
+
+  // Date Roulette State
+  const [isSpinningDate, setIsSpinningDate] = useState(false);
+  const [spinIndex, setSpinIndex] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Would You Rather State
+  const [wyrQuestionIndex, setWyrQuestionIndex] = useState(0);
+  const [wyrMyChoices, setWyrMyChoices] = useState<Record<number, number>>({});
+  const [wyrShowingResults, setWyrShowingResults] = useState(false);
+
+  // Compliment Jar State
+  const [jarCompliment, setJarCompliment] = useState<string | null>(null);
+  const [newCustomCompliment, setNewCustomCompliment] = useState('');
+  const [customComplimentsList, setCustomComplimentsList] = useState<string[]>([]);
+  const [activeGameTab, setActiveGameTab] = useState<'roulette' | 'wyr' | 'jar'>('roulette');
+
   // Voice Notes Recorder Simulator State
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -161,19 +261,20 @@ export default function DashboardPage() {
       const score = await databaseApi.getCosmicSeedScore(userProfile.couple_id);
       setSeedScore(score);
 
-      // Automatically trigger confetti and sounds if a new gift from partner is received
+      // Automatically trigger custom fullscreen overlay animation if a new gift is received
       if (lastGiftCountRef.current !== null && giftsList.length > lastGiftCountRef.current) {
         const newGiftsCount = giftsList.length - lastGiftCountRef.current;
         const newGifts = giftsList.slice(0, newGiftsCount);
         const hasPartnerGift = newGifts.some(g => g.sender_id !== userProfile.id);
         if (hasPartnerGift) {
           const latestGift = newGifts[0];
-          if (latestGift.gift_type === 'hug') {
-            audioSystem.playHug();
-          } else {
-            audioSystem.playTwinkle();
-          }
-          setShowConfetti(true);
+          // Set overlay animation
+          setActiveGiftAnimation({
+            type: (latestGift.gift_type === 'rose' || latestGift.gift_type === 'flower' ? 'flower' : latestGift.gift_type) as 'kiss' | 'flower' | 'hug' | 'star',
+            senderName: partnerProfile?.nickname || 'Partner',
+            receiverName: userProfile.nickname,
+            message: latestGift.message || undefined
+          });
         }
       }
       lastGiftCountRef.current = giftsList.length;
@@ -193,6 +294,19 @@ export default function DashboardPage() {
       } else {
         activeUser = userProfile;
         setCurrentUser(userProfile);
+        
+        // Load custom compliments and Would You Rather choices
+        if (typeof window !== 'undefined') {
+          const savedCompliments = localStorage.getItem(`ps_compliments_${userProfile.couple_id}`);
+          if (savedCompliments) {
+            setCustomComplimentsList(JSON.parse(savedCompliments));
+          }
+          const mySavedWyr = localStorage.getItem(`project_star_wyr_${userProfile.couple_id}_${userProfile.id}`);
+          if (mySavedWyr) {
+            setWyrMyChoices(JSON.parse(mySavedWyr));
+          }
+        }
+
         loadDashboardData(userProfile).then(() => setLoading(false));
       }
     });
@@ -203,8 +317,6 @@ export default function DashboardPage() {
         loadDashboardData(activeUser);
       }
     }, 10000);
-
-    // Voice notes are pre-seeded statically
 
     return () => {
       clearInterval(pollInterval);
@@ -226,10 +338,10 @@ export default function DashboardPage() {
   }
 
   // Calculate compatibility result if partner is linked
-  const partnerData = partner || { birthday: '1995-01-01', love_language: 'Quality Time', interests: [] };
+  const partnerData = partner || { birthday: '1995-01-01', love_language: 'Quality Time', interests: [], personality: '' };
   const compatResult = calculateCompatibility(
-    { birthday: currentUser.birthday, loveLanguage: currentUser.love_language, interests: currentUser.interests },
-    { birthday: partnerData.birthday, loveLanguage: partnerData.love_language, interests: partnerData.interests }
+    { birthday: currentUser.birthday, loveLanguage: currentUser.love_language, interests: currentUser.interests, personality: currentUser.personality },
+    { birthday: partnerData.birthday, loveLanguage: partnerData.love_language, interests: partnerData.interests, personality: partnerData.personality }
   );
 
   // Calculate Her cycle information
@@ -280,10 +392,16 @@ export default function DashboardPage() {
         selectedGiftType,
         giftMsg.trim() || undefined
       );
-      if (selectedGiftType === 'hug') audioSystem.playHug();
-      else audioSystem.playSuccess();
+      
+      // Trigger local overlay animation for the sender
+      setActiveGiftAnimation({
+        type: selectedGiftType as 'kiss' | 'flower' | 'hug' | 'star',
+        senderName: currentUser.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑',
+        receiverName: partner?.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑',
+        message: giftMsg.trim() || undefined
+      });
+
       setGiftMsg('');
-      setShowConfetti(true);
       loadDashboardData(currentUser);
     } catch (e) {
       console.error(e);
@@ -437,6 +555,61 @@ export default function DashboardPage() {
 
   const handlePlayVoiceNote = () => audioSystem.playTwinkle();
 
+  // Court Games handlers
+  const handleSpinDate = () => {
+    if (isSpinningDate) return;
+    audioSystem.playClick();
+    setIsSpinningDate(true);
+    setSelectedDate(null);
+    let count = 0;
+    const interval = setInterval(() => {
+      setSpinIndex(Math.floor(Math.random() * COURT_DATES.length));
+      count++;
+      if (count > 12) {
+        clearInterval(interval);
+        const finalIndex = Math.floor(Math.random() * COURT_DATES.length);
+        setSpinIndex(finalIndex);
+        setSelectedDate(COURT_DATES[finalIndex]);
+        setIsSpinningDate(false);
+        audioSystem.playSuccess();
+      }
+    }, 100);
+  };
+
+  const getPartnerWYR = () => {
+    if (typeof window === 'undefined' || !partner) return null;
+    const key = `project_star_wyr_${currentUser.couple_id}_${partner.id}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  };
+
+  const getMockPartnerAnswers = (partnerId: string) => {
+    if (partnerId === 'mahi') {
+      return { 0: 0, 1: 1, 2: 1, 3: 1, 4: 0 };
+    } else {
+      return { 0: 0, 1: 0, 2: 0, 3: 1, 4: 1 };
+    }
+  };
+
+  const handleGetCompliment = () => {
+    audioSystem.playTwinkle();
+    const allCompliments = [...PRESET_COMPLIMENTS, ...customComplimentsList];
+    const idx = Math.floor(Math.random() * allCompliments.length);
+    setJarCompliment(allCompliments[idx]);
+  };
+
+  const handleSaveCustomCompliment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomCompliment.trim()) return;
+    audioSystem.playSuccess();
+    const updated = [...customComplimentsList, newCustomCompliment.trim()];
+    setCustomComplimentsList(updated);
+    if (currentUser?.couple_id) {
+      localStorage.setItem(`ps_compliments_${currentUser.couple_id}`, JSON.stringify(updated));
+    }
+    setNewCustomCompliment('');
+  };
+
   // Helper: Did both partners answer?
   const bothAnswered = dailyAnswers.length >= 2;
   const myAnswer = dailyAnswers.find(a => a.user_id === currentUser.id);
@@ -512,13 +685,13 @@ export default function DashboardPage() {
               <div className="text-center md:text-left md:flex md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-white">
-                    Welcome back, {currentUser.nickname}! {myZodiacSymbol}
+                    Welcome back, {currentUser.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑'}! {myZodiacSymbol}
                   </h2>
                   <p className="text-xs text-cosmic-lavender/70 mt-0.5">
-                    {partner ? `Orbiting in real-time with ${partner.nickname} ${ZODIAC_SYMBOLS[(partner.zodiac_sign || getZodiacSign(partner.birthday)) as ZodiacSign] || '✨'}` : 'Searching for partner orbit...'}
+                    {partner ? `Orbiting in real-time with ${partner.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑'} ${ZODIAC_SYMBOLS[(partner.zodiac_sign || getZodiacSign(partner.birthday)) as ZodiacSign] || '✨'}` : 'Searching for partner orbit...'}
                   </p>
                   <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cosmic-pink/15 border border-cosmic-pink/20 text-xs font-bold text-cosmic-pink shadow-glow">
-                    💖 Orbiting since March 6, 2026 · Day {relationshipDays}
+                    🏰 Days of our Kingdom Alliance: Day {relationshipDays}
                   </div>
                 </div>
                 {currentUser.gender === 'female' && (
@@ -640,6 +813,18 @@ export default function DashboardPage() {
                           rows={2}
                           className="w-full glass-input text-xs resize-none"
                         />
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {NOTE_SUGGESTIONS.map(sug => (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => { setNoteInput(sug); audioSystem.playClick(); }}
+                              className="px-2 py-0.5 rounded-lg bg-cosmic-purple/20 border border-cosmic-lavender/5 text-[9px] text-cosmic-lavender hover:border-cosmic-pink/30 cursor-pointer"
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => { setIsEditingNote(false); audioSystem.playClick(); }}
@@ -679,7 +864,7 @@ export default function DashboardPage() {
                   <GlassCard>
                     <h3 className="text-sm font-extrabold text-white mb-3 tracking-wider uppercase flex items-center gap-1.5">
                       <Gift className="w-4 h-4 text-cosmic-pink" />
-                      Send Love Sparkles
+                      Enchanted Cosmic Rose 🌹
                     </h3>
 
                     <form onSubmit={handleSendGift} className="space-y-3.5">
@@ -761,7 +946,9 @@ export default function DashboardPage() {
                     </div>
                   )}
                   {virtualGifts.slice(0, 8).map((gift) => {
-                    const senderName = gift.sender_id === currentUser.id ? 'You' : (partner?.nickname || 'Partner');
+                    const senderName = gift.sender_id === currentUser.id
+                      ? (currentUser.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑')
+                      : (partner?.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑');
                     const giftLabel = gift.gift_type === 'hug' ? 'virtual hug' : gift.gift_type === 'kiss' ? 'warm kiss' : gift.gift_type === 'star' ? 'lucky star' : 'cosmic rose';
                     const giftEmoji = gift.gift_type === 'hug' ? '🤗' : gift.gift_type === 'kiss' ? '💋' : gift.gift_type === 'star' ? '⭐' : '🌹';
                     return (
@@ -911,13 +1098,13 @@ export default function DashboardPage() {
               <div className="flex items-center justify-center gap-4 py-3 px-4 rounded-2xl bg-cosmic-purple/20 border border-cosmic-lavender/10">
                 <div className="text-center">
                   <div className="text-3xl">{ZODIAC_SYMBOLS[compatResult.zodiac.sign1]}</div>
-                  <div className="text-xs font-bold text-cosmic-lavender mt-1">{currentUser.nickname}</div>
+                  <div className="text-xs font-bold text-cosmic-lavender mt-1">{currentUser.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑'}</div>
                   <div className="text-[10px] text-cosmic-lavender/50">{compatResult.zodiac.sign1}</div>
                 </div>
                 <div className="text-2xl text-cosmic-pink animate-pulse">💞</div>
                 <div className="text-center">
                   <div className="text-3xl">{ZODIAC_SYMBOLS[compatResult.zodiac.sign2]}</div>
-                  <div className="text-xs font-bold text-cosmic-pink mt-1">{partner?.nickname || 'Partner'}</div>
+                  <div className="text-xs font-bold text-cosmic-pink mt-1">{partner?.id === 'anshrit' ? 'Knight Anshrit 🛡️' : 'Princess Mahi 👑'}</div>
                   <div className="text-[10px] text-cosmic-lavender/50">{compatResult.zodiac.sign2}</div>
                 </div>
               </div>
@@ -928,8 +1115,8 @@ export default function DashboardPage() {
                   score={compatResult.overall}
                   sign1={currentUser.zodiac_sign || mySign}
                   sign2={partnerData.zodiac_sign || getZodiacSign(partnerData.birthday || '1995-01-01')}
-                  name1={currentUser.nickname}
-                  name2={partnerData.nickname || 'Partner'}
+                  name1={currentUser.id === 'anshrit' ? 'Knight Anshrit' : 'Princess Mahi'}
+                  name2={partnerData.id === 'anshrit' ? 'Knight Anshrit' : 'Princess Mahi'}
                 />
               </GlassCard>
 
@@ -1001,6 +1188,50 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               </GlassCard>
+
+              {/* Royal Alliance Details */}
+              {compatResult.royalDetails && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <GlassCard>
+                    <span className="text-[10px] font-bold text-cosmic-lavender/50 uppercase tracking-widest block mb-1">
+                      INTIMACY STYLE MATCH
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mb-2">
+                      <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.styleScore}%</span>
+                    </div>
+                    <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
+                      Anshrit: <strong className="text-white">{compatResult.royalDetails.style1}</strong> <br />
+                      Mahi: <strong className="text-white">{compatResult.royalDetails.style2}</strong>
+                    </p>
+                  </GlassCard>
+
+                  <GlassCard>
+                    <span className="text-[10px] font-bold text-cosmic-lavender/50 uppercase tracking-widest block mb-1">
+                      SANCTUARY ALLIANCE
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mb-2">
+                      <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.castleScore}%</span>
+                    </div>
+                    <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
+                      Anshrit: <strong className="text-white">{compatResult.royalDetails.castle1}</strong> <br />
+                      Mahi: <strong className="text-white">{compatResult.royalDetails.castle2}</strong>
+                    </p>
+                  </GlassCard>
+
+                  <GlassCard>
+                    <span className="text-[10px] font-bold text-cosmic-lavender/50 uppercase tracking-widest block mb-1">
+                      INTIMACY LANGUAGE
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mb-2">
+                      <span className="text-2xl font-extrabold text-white text-glow">{compatResult.royalDetails.intimacyLanguageScore}%</span>
+                    </div>
+                    <p className="text-xs text-cosmic-lavender/70 leading-relaxed">
+                      Anshrit: <strong className="text-white">{compatResult.royalDetails.intimacyLang1}</strong> <br />
+                      Mahi: <strong className="text-white">{compatResult.royalDetails.intimacyLang2}</strong>
+                    </p>
+                  </GlassCard>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1275,6 +1506,18 @@ export default function DashboardPage() {
                         className="w-full glass-input text-xs"
                         required
                       />
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {ANSWER_SUGGESTIONS.map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => { setNewAnswerText(sug); audioSystem.playClick(); }}
+                            className="px-2 py-0.5 rounded-lg bg-cosmic-purple/20 border border-cosmic-lavender/5 text-[9px] text-cosmic-lavender hover:border-cosmic-pink/30 cursor-pointer"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
                       <div className="flex justify-end">
                         <button
                           type="submit"
@@ -1342,37 +1585,272 @@ export default function DashboardPage() {
                 </div>
               </GlassCard>
 
-              {/* CUTE MINI GAMES / TIPS */}
+              {/* COURT GAMES PANEL */}
               <GlassCard>
-                <h3 className="text-sm font-extrabold text-white mb-3 tracking-wider uppercase">
-                  Mini Love Games 🎮
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { emoji: '💌', title: 'Love Letter', desc: 'Write one thing you love about your partner right now', color: 'from-pink-950/50 to-rose-900/30 border-pink-500/20' },
-                    { emoji: '🎲', title: 'Date Roulette', desc: 'Spin to pick your next date idea!', color: 'from-violet-950/50 to-purple-900/30 border-violet-500/20' },
-                    { emoji: '🌟', title: 'Compliment Jar', desc: 'Leave a sweet compliment for them to find', color: 'from-amber-950/50 to-yellow-900/30 border-amber-500/20' },
-                    { emoji: '📸', title: 'Photo Dare', desc: 'Take a cute selfie together today!', color: 'from-teal-950/50 to-emerald-900/30 border-teal-500/20' },
-                  ].map((game) => (
-                    <motion.div
-                      key={game.title}
-                      whileHover={{ scale: 1.03, y: -2 }}
-                      whileTap={{ scale: 0.97 }}
-                      className={`p-3 rounded-xl bg-gradient-to-br ${game.color} border cursor-pointer`}
-                      onClick={() => audioSystem.playTwinkle()}
-                    >
-                      <div className="text-2xl mb-1">{game.emoji}</div>
-                      <div className="text-xs font-bold text-white mb-1">{game.title}</div>
-                      <div className="text-[10px] text-white/60 leading-relaxed">{game.desc}</div>
-                    </motion.div>
-                  ))}
+                <div className="flex items-center justify-between border-b border-cosmic-lavender/10 pb-2 mb-4">
+                  <h3 className="text-sm font-extrabold text-white tracking-wider uppercase flex items-center gap-1.5">
+                    🎮 Royal Court Games
+                  </h3>
+                  <div className="flex gap-1">
+                    {[
+                      { id: 'roulette', label: 'Roulette 🎲' },
+                      { id: 'wyr', label: 'WYR ⚔️' },
+                      { id: 'jar', label: 'Jar 🍯' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => { setActiveGameTab(tab.id as 'roulette' | 'wyr' | 'jar'); audioSystem.playClick(); }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                          activeGameTab === tab.id
+                            ? 'bg-cosmic-pink/20 border-cosmic-pink text-white shadow-glow shadow-cosmic-pink/10'
+                            : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/60 hover:border-cosmic-lavender/25'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {activeGameTab === 'roulette' && (
+                  <div className="text-center py-2 space-y-4">
+                    <p className="text-xs text-cosmic-lavender/70">
+                      Let destiny decide your next royal excursion! Spin the magical date roulette.
+                    </p>
+                    <div className="relative inline-flex items-center justify-center p-6 bg-gradient-to-br from-violet-950/40 to-purple-900/30 border border-violet-500/20 rounded-full w-48 h-48 mx-auto shadow-glow shadow-purple-500/5">
+                      <motion.div
+                        animate={isSpinningDate ? { rotate: 360 } : {}}
+                        transition={isSpinningDate ? { repeat: Infinity, ease: 'linear', duration: 0.6 } : {}}
+                        className="text-3xl select-none"
+                      >
+                        {isSpinningDate ? '🌀' : '🎲'}
+                      </motion.div>
+                      {isSpinningDate && (
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <p className="text-[10px] font-bold text-cosmic-pink/70 animate-pulse leading-snug">
+                            {COURT_DATES[spinIndex]}
+                          </p>
+                        </div>
+                      )}
+                      {selectedDate && !isSpinningDate && (
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <motion.p
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-xs font-bold text-white tracking-wide"
+                          >
+                            {selectedDate}
+                          </motion.p>
+                        </div>
+                      )}
+                      {!selectedDate && !isSpinningDate && (
+                        <div className="absolute inset-0 flex items-center justify-center p-4">
+                          <p className="text-[10px] text-cosmic-lavender/50 uppercase tracking-widest font-bold">READY TO SPIN</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleSpinDate}
+                        disabled={isSpinningDate}
+                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 hover:from-purple-500 hover:to-white text-white hover:text-cosmic-black font-extrabold text-xs tracking-wider disabled:opacity-50 transition-all shadow-md active:scale-95 cursor-pointer"
+                      >
+                        {isSpinningDate ? 'CASTING SPELL...' : 'SPIN DATE IDEAS 🎲'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeGameTab === 'wyr' && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center text-[10px] text-cosmic-lavender/50 tracking-wider font-bold uppercase">
+                      <span>WOULD YOU RATHER</span>
+                      <span>QUESTION {wyrQuestionIndex + 1} OF 5</span>
+                    </div>
+
+                    {!wyrShowingResults ? (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-2xl bg-cosmic-purple/15 border border-cosmic-lavender/10 text-center">
+                          <h4 className="text-sm font-bold text-white leading-relaxed">
+                            {WYR_QUESTIONS[wyrQuestionIndex].q}
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {WYR_QUESTIONS[wyrQuestionIndex].opts.map((opt, optIdx) => {
+                            const isChosen = wyrMyChoices[wyrQuestionIndex] === optIdx;
+                            return (
+                              <button
+                                key={optIdx}
+                                type="button"
+                                onClick={() => {
+                                  audioSystem.playClick();
+                                  const updated = { ...wyrMyChoices, [wyrQuestionIndex]: optIdx };
+                                  setWyrMyChoices(updated);
+                                  localStorage.setItem(`project_star_wyr_${currentUser.couple_id}_${currentUser.id}`, JSON.stringify(updated));
+                                  // Auto progress or finish
+                                  if (wyrQuestionIndex < 4) {
+                                    setTimeout(() => setWyrQuestionIndex(prev => prev + 1), 300);
+                                  } else {
+                                    setWyrShowingResults(true);
+                                  }
+                                }}
+                                className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                                  isChosen
+                                    ? 'bg-cosmic-pink/20 border-cosmic-pink text-white'
+                                    : 'bg-cosmic-black/40 border-cosmic-lavender/10 text-cosmic-lavender/70 hover:border-cosmic-lavender/30'
+                                }`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex justify-between pt-2">
+                          <button
+                            type="button"
+                            disabled={wyrQuestionIndex === 0}
+                            onClick={() => { setWyrQuestionIndex(prev => prev - 1); audioSystem.playClick(); }}
+                            className="px-3 py-1.5 rounded-lg border border-cosmic-lavender/10 text-cosmic-lavender text-[10px] font-bold disabled:opacity-30 cursor-pointer"
+                          >
+                            Back
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setWyrShowingResults(true); audioSystem.playClick(); }}
+                            className="px-3 py-1.5 rounded-lg bg-cosmic-purple/40 border border-cosmic-lavender/15 text-white text-[10px] font-bold cursor-pointer"
+                          >
+                            Compare Choices ⚔️
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-white tracking-widest uppercase mb-2">Our Alliance Alignment</h4>
+                        
+                        <div className="space-y-2.5 max-h-60 overflow-y-auto no-scrollbar">
+                          {WYR_QUESTIONS.map((qObj, idx) => {
+                            const myChoice = wyrMyChoices[idx];
+                            const partnerSaved = getPartnerWYR();
+                            const partnerChoice = partnerSaved ? partnerSaved[idx] : getMockPartnerAnswers(partner?.id || 'mahi')[idx];
+                            
+                            const isMatch = myChoice === partnerChoice;
+                            
+                            return (
+                              <div key={idx} className={`p-3 rounded-xl border ${isMatch ? 'bg-emerald-950/20 border-emerald-500/20' : 'bg-rose-950/20 border-rose-500/20'} text-xs`}>
+                                <p className="font-semibold text-white leading-relaxed mb-2">{idx + 1}. {qObj.q}</p>
+                                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                  <div className="p-2 rounded bg-black/30 text-cosmic-lavender border border-white/5">
+                                    <span className="block text-[8px] text-cosmic-lavender/40 font-bold uppercase mb-0.5">YOUR CHOICE</span>
+                                    {myChoice !== undefined ? qObj.opts[myChoice] : 'Not Answered'}
+                                  </div>
+                                  <div className="p-2 rounded bg-black/30 text-cosmic-pink border border-white/5">
+                                    <span className="block text-[8px] text-cosmic-pink/40 font-bold uppercase mb-0.5">{partner?.nickname || 'PARTNER'}&apos;S CHOICE</span>
+                                    {partnerChoice !== undefined ? qObj.opts[partnerChoice] : 'Not Answered'}
+                                  </div>
+                                </div>
+                                {isMatch && (
+                                  <div className="text-[10px] text-emerald-400 font-bold mt-1.5 flex items-center gap-1">
+                                    ✨ Perfect Sync match!
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWyrQuestionIndex(0);
+                              setWyrShowingResults(false);
+                              audioSystem.playClick();
+                            }}
+                            className="flex-1 py-2 rounded-xl border border-cosmic-lavender/10 text-cosmic-lavender text-xs font-bold cursor-pointer animate-pulse"
+                          >
+                            Play Again 🔄
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWyrShowingResults(false);
+                              audioSystem.playClick();
+                            }}
+                            className="flex-1 py-2 rounded-xl bg-cosmic-purple text-white text-xs font-bold cursor-pointer"
+                          >
+                            Adjust Choices ✍️
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeGameTab === 'jar' && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-cosmic-lavender/70">
+                      Dip your hand into the jar to retrieve a warm compliment, or leave one for your partner.
+                    </p>
+
+                    {jarCompliment ? (
+                      <motion.div
+                        initial={{ scale: 0.9, y: 10, opacity: 0 }}
+                        animate={{ scale: 1, y: 0, opacity: 1 }}
+                        className="p-4 rounded-2xl bg-gradient-to-br from-amber-950/40 to-yellow-950/40 border border-amber-500/20 text-center italic text-sm text-yellow-100 font-medium relative"
+                      >
+                        <div className="absolute top-1 right-2 text-2xl opacity-10">🍯</div>
+                        &ldquo;{jarCompliment}&rdquo;
+                      </motion.div>
+                    ) : (
+                      <div className="py-6 text-center text-5xl animate-bounce cursor-pointer select-none" onClick={() => handleGetCompliment()}>
+                        🍯
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleGetCompliment()}
+                        className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-yellow-500 hover:to-white text-white hover:text-cosmic-black font-extrabold text-xs tracking-wider transition-all shadow-md cursor-pointer"
+                      >
+                        DRAW COMPLIMENT 🍯
+                      </button>
+                    </div>
+
+                    <div className="border-t border-cosmic-lavender/10 pt-3.5 mt-2.5">
+                      <label className="block text-[10px] font-bold text-cosmic-lavender/50 uppercase tracking-widest mb-1.5">
+                        Leave a Complimentary Note 🍯
+                      </label>
+                      <form onSubmit={handleSaveCustomCompliment} className="flex gap-2 text-[10px]">
+                        <input
+                          type="text"
+                          value={newCustomCompliment}
+                          onChange={(e) => setNewCustomCompliment(e.target.value)}
+                          placeholder="Mahi, you look stunning in the royal gardens... 👑"
+                          className="flex-1 glass-input text-xs"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 rounded-xl bg-cosmic-purple hover:bg-cosmic-violet border border-cosmic-lavender/15 text-white font-semibold text-xs cursor-pointer"
+                        >
+                          DROP IN JAR
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </GlassCard>
 
               {/* SETTINGS / LOG OUT */}
               <GlassCard>
                 <h3 className="text-sm font-extrabold text-white mb-3.5 tracking-wider uppercase">
-                  Cosmic Station Settings ⚙️
+                  Royal Court Settings 🏰
                 </h3>
                 <div className="space-y-3 text-xs">
                   <div className="flex items-center justify-between p-2.5 bg-cosmic-black/40 border border-cosmic-lavender/5 rounded-xl">
@@ -1507,6 +1985,18 @@ export default function DashboardPage() {
                         placeholder="Quick mood notes (e.g. anxious, excited)..."
                         className="w-full glass-input text-xs mt-1.5"
                       />
+                      <div className="flex flex-wrap gap-1 mt-1.5 mb-2">
+                        {MOOD_SUGGESTIONS.map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => { setNewLogMoodNotes(sug); audioSystem.playClick(); }}
+                            className="px-2 py-0.5 rounded-lg bg-cosmic-purple/20 border border-cosmic-lavender/5 text-[9px] text-cosmic-lavender hover:border-cosmic-pink/30 cursor-pointer"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Symptoms Selection */}
@@ -1580,6 +2070,18 @@ export default function DashboardPage() {
                         rows={2}
                         className="w-full glass-input text-xs resize-none"
                       />
+                      <div className="flex flex-wrap gap-1 mt-1 mb-2">
+                        {WELLNESS_SUGGESTIONS.map(sug => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => { setNewLogNotes(sug); audioSystem.playClick(); }}
+                            className="px-2 py-0.5 rounded-lg bg-cosmic-purple/20 border border-cosmic-lavender/5 text-[9px] text-cosmic-lavender hover:border-cosmic-pink/30 cursor-pointer"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Submit */}
@@ -1630,6 +2132,19 @@ export default function DashboardPage() {
           );
         })}
       </nav>
+
+      {/* Gift animation overlay */}
+      <AnimatePresence>
+        {activeGiftAnimation && (
+          <EnchantedGiftAnimation
+            type={activeGiftAnimation.type}
+            senderName={activeGiftAnimation.senderName}
+            receiverName={activeGiftAnimation.receiverName}
+            message={activeGiftAnimation.message}
+            onComplete={() => setActiveGiftAnimation(null)}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
